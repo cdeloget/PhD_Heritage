@@ -5,7 +5,6 @@
 # install.packages(c("tidyverse", "igraph", "rvest", "pingr"))
 
 library(tidyverse)
-library(lubridate)
 library(igraph)
 library(rvest)
 library(pingr)
@@ -13,9 +12,6 @@ library(pingr)
 #-------------------------------------------------------
 #----------------Variables globales----------------------
 langue <- "fr"
-
-# NOEUDS <- data.frame()
-
 
 #------------------------------------------------------------------
 #------------------ FONCTIONS -------------------------------------
@@ -28,7 +24,7 @@ langue <- "fr"
 
 discipline <- readline("Discipline : ") #ex : Taper Geographie
 
-motcle <- readline("mot clé ? : ") #ex : Taper "Saint-Julien" ou "mobilités" (taper "%20" à la place des espaces...)
+motcle <- readline("mot clé ? : ") %>% str_replace_all(" ", "%20")#ex : Taper "Saint-Julien" ou "mobilités" (taper "%20" à la place des espaces...)
 
 url_base <- paste("https://theses.fr/fr/?q=",motcle,"&status=status:soutenue&checkedfacets=discipline=",discipline, sep="") #création de la requête http get
 
@@ -42,6 +38,7 @@ infos_theses <- resultats %>% html_nodes("div.informations") #on récup dans les 
 
 infos_tmp <- infos_theses %>% html_text() %>% data.frame(RESULTS = .) #on convertir le html en texte pour affichage test
 infos_tmp$RESULTS #affichage des intitulés pour vérif
+
 
 
 #dans la div resultats on récup les dates (petit encart à droite du nom de la thèse)
@@ -59,15 +56,21 @@ noms_theses <- infos_theses %>% html_nodes("h2") %>% html_text() %>% str_replace
 auteurs_theses <- infos_theses %>% html_nodes("p") %>% html_text()
 auteurs_theses <- str_split(auteurs_theses, pattern="\r\n", simplify = TRUE)[,1]
 auteurs_theses <- auteurs_theses %>% str_replace("par ", "") %>% str_to_title(locale=langue)
+#id de l'auteur #premier lien a du paragraphe p
+id_auteur <- infos_theses %>% html_node("p a:nth-child(1)") %>% html_attr("href") %>% substr(2,nchar(.))
 
 #on récupère l'encadrant numéro 1 et l'université de soutenance
+#nom du directeur
 dir_theses <- infos_theses %>% html_nodes("p") %>% html_text()
 dir_theses <- str_split(dir_theses, pattern="sous la direction de", simplify=TRUE)
 dir_theses <- dir_theses[,2] %>% str_replace_all("\r\n", "") %>% str_replace_all(" \r\n", "") %>% substr(x=.,start=2, stop=nchar(.))
 directeur_theses <- str_split(dir_theses, pattern=" - ", simplify=TRUE)[,1]
 directeur_theses <- str_split(directeur_theses, pattern=" et de ", simplify=TRUE)[,1]
+#id du dirthese #deuxième lien a du paragraphe p
+id_dirtheses <- infos_theses %>% html_nodes("p a:nth-child(2)") %>% html_attr("href") %>% substr(2,nchar(.)) %>% str_replace_all("fr/", "")
+#univ du directeur
 univ_theses <- str_split(dir_theses, pattern=" - ", simplify=TRUE)[,2] %>% substr(x=.,start=1, stop=nchar(.)-2)
 
-NOEUDS <- data.frame(AUTEUR=auteurs_theses, ANNEE= dates_theses, DIR=directeur_theses, UNIV= univ_theses, INTITULE = noms_theses)
+LIENS <- data.frame(ID_AUTEUR= id_auteur, AUTEUR=auteurs_theses, ANNEE= dates_theses, ID_DIR=id_dirtheses, DIR=directeur_theses, UNIV_DIR= univ_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
 
-
+View(LIENS)
