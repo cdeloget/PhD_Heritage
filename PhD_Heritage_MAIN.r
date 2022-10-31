@@ -20,19 +20,22 @@ library(mapview)
 #-----------------------------------------------------------
 langue <- "fr"
 
-
 #------------------------------------------------------------------
 #------------------ FONCTIONS -------------------------------------
 #-----------------------------------------------------------------
 
 #------Récupération des résultats de recherche sur theses.fr-----------
 
-get_resultats <- function(discipline, motcles){
+build_phd_url <- function(discipline, motcles){
   ###Fonction qui construit l'url de theses.fr avec la discipline et les mots clés passés en paramètres. Le code HTML qui contient les résultats est retourné
-
+  
   motcles <- motcles %>% str_replace_all(" ", "%20")
-    
+  
   url_base <- paste("https://theses.fr/fr/?q=",motcles,"&status=status:soutenue&checkedfacets=discipline=",discipline, sep="") #création de la requête http get
+}
+
+get_resultats <- function(url_base){
+  #fonction qui effectue la requete et retourne le résultat html brut
   print("URL de la requête : ")
   print(url_base) #vérif de l'url
   print("Requête en cours")
@@ -147,12 +150,22 @@ geocode_phds_from_column <- function(table, champ_a_traiter){
 discipline_saisie <- readline("Discipline : ") #ex : Taper "Geographie"
 
 motcles_saisis <- readline("mots clés ? : ")#ex : Taper "Thérèse Saint-Julien" ou "mobilités ferroviaires" 
-
-resultats <- get_resultats(discipline_saisie, motcles_saisis)#on va requeter theses.fr et renvoyer le code html contenant les resultats de la recherche sur theses.fr
+url <- build_phd_url(discipline_saisie, motcles_saisis)
+resultats <- get_resultats(url)#on va requeter theses.fr et renvoyer le code html contenant les resultats de la recherche sur theses.fr
 theses_liens <- build_phd_table(resultats)#recup des informations importantes dans le code html et les met en forme dans un tableau df
 View(theses_liens)
 theses_lien_geocoded <- geocode_phds_from_column(theses_liens, "UNIV_DIR")
-
 mapview(theses_lien_geocoded)
 
 
+######----------------------bac à merde------------------------------
+
+url_session <- session(url)
+liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href")
+html_fils <- url_session %>% session_jump_to("/081900597")
+fils <- read_html(url_session$url)
+motcles_fils <- fils %>% html_node("div#nuages") %>% html_text()
+nom_fils <-  fils %>% html_node("h1") %>% html_text()
+fils_info <- data.frame(ID_F=liens[1], NOM_F = nom_fils, MOTCLE = motcles_fils)
+
+?session_jump_to
