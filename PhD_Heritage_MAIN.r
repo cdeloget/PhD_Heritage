@@ -4,15 +4,15 @@
 
 # install.packages(c("tidyverse", "igraph", "rvest", "pingr", "httr", "jsonlite", "sf", "geojsonsf"))
 
-library(tidyverse)#dplyr, pipe etc. HAdley Wickham
+library(tidyverse)#dplyr, pipe etc. Hadley Wickham le boss
 library(igraph)#pour faire des graphes
 library(rvest)#recup du contenu html distant et parser les noeuds html
 # library(pingr)
-library(httr)#requetes http sur api
-library(jsonlite)#manipuler des json
+library(httr)#pour requetes http
+# library(jsonlite)#manipuler des json
 library(sf)
 library(mapview)
-library(geojsonsf)#convertir un geojson en sf sur R
+# library(geojsonsf)#convertir un geojson en sf sur R
 
 
 #-------------------------------------------------------
@@ -25,6 +25,7 @@ langue <- "fr"
 #------------------ FONCTIONS -------------------------------------
 #-----------------------------------------------------------------
 
+#------Récupération des résultats de recherche sur theses.fr-----------
 
 get_resultats <- function(discipline, motcles){
   ###Fonction qui construit l'url de theses.fr avec la discipline et les mots clés passés en paramètres. Le code HTML qui contient les résultats est retourné
@@ -42,6 +43,7 @@ get_resultats <- function(discipline, motcles){
 }
 
 
+#-----------Construction d'un tableau de données à partir du résultat html---------------
 
 build_phd_table <- function(results, export=T){
   infos_theses <- resultats %>% html_nodes("div.informations") #on récup dans les résultats les div contenant les infos de chaque thèse
@@ -101,32 +103,41 @@ build_phd_table <- function(results, export=T){
 #----------------------- FONCTIONS EXPERIMENTALES  --------------------
 #------------------------------------------------------------------
 
+#------géocodage à partir du nom de l'université de soutenance, en utilisant l'API BAN----
+
 geocode_phds_from_column <- function(table, champ_a_traiter){
   write.csv(table, "table_a_geocoder.csv")#la table passée en paramètre est exportée en csv
   
   ###utilisation de l'API BAN de l'Etat FR pour géocoder un CSV qui est envoyé en méthode POST dans le paramètre data, avec un paramètre columns qui spécifie la colonne sur laquelle doit se baser le geocodage. result_columns permet de filtrer les colonnes souhaitées en résultat. Voir https://adresse.data.gouv.fr/api-doc/adresse
   print("geocodage en cours...")
   url_apiban <- "https://api-adresse.data.gouv.fr/search/csv/"
-  raw_response_content <- content(#content permet de ne récupérer que le contenu de la reposne, débarassée des en-têtes et autres infos
+  raw_response_content <- content(#content permet de ne récupérer que le contenu de la reponse, débarassée des en-têtes et autres infos
     POST(
       url = url_apiban,#url où faire la requete
-      body = list(data=upload_file("table_a_geocoder.csv"), columns=champ_a_traiter, result_columns="latitude", result_columns="longitude", result_columns="result_city"),
+      body = list(data=upload_file("table_a_geocoder.csv"), 
+                  columns=champ_a_traiter, 
+                  result_columns="latitude", 
+                  result_columns="longitude", 
+                  result_columns="result_city"
+                  ),
       verbose()#affichage des infos requete en console
     ),
     as = "raw",
     content_type="text/csv"#on precise que la réponse est un document csv
   )
-#par défaut, le csv est encodé en hexadecimal : on le convertit en chaines de caractères classique
-response_content <- rawToChar(raw_response_content)
+  #par défaut, le csv est encodé en hexadecimal : on le convertit en chaines de caractères classique
+  response_content <- rawToChar(raw_response_content)
 
-write_lines(response_content, file="table_geocoded.txt", sep="\n")#le texte brut du csv est exporté ligne par ligne (les lignes sont séparées par "\n")
+  write_lines(response_content, file="table_geocoded.txt", sep="\n")#le texte brut du csv est exporté ligne   par ligne (les lignes sont séparées par "\n")
 
-geocoded_data <- read.csv(file="table_geocoded.txt", encoding = "UTF-8")#on lit le fichier texte comme s'il s'agissait d'un csv. On le récupère donc en dataframe
-print(geocoded_data)
-geocoded_data <- geocoded_data %>% st_as_sf(coords=c("longitude", "latitude"), crs="EPSG:4326")
-print("OK")
-return(geocoded_data)
+  geocoded_data <- read.csv(file="table_geocoded.txt", encoding = "UTF-8")#on lit le fichier texte comme s'il s'agissait d'un csv. On le récupère donc en dataframe
+  print(geocoded_data)
+  geocoded_data <- geocoded_data %>% st_as_sf(coords=c("longitude", "latitude"), crs="EPSG:4326")
+  print("OK")
+  return(geocoded_data)
 }
+
+
 
 #--------------------------------------------------------------------
 #-------------------------- SCRIPT PRINCIPAL -------------------------
@@ -135,7 +146,7 @@ return(geocoded_data)
 
 discipline_saisie <- readline("Discipline : ") #ex : Taper "Geographie"
 
-motcles_saisis <- readline("mots clés ? : ")#ex : Taper "Thérèse Saint-Julien" ou "mobilités ferroviairew" 
+motcles_saisis <- readline("mots clés ? : ")#ex : Taper "Thérèse Saint-Julien" ou "mobilités ferroviaires" 
 
 resultats <- get_resultats(discipline_saisie, motcles_saisis)#on va requeter theses.fr et renvoyer le code html contenant les resultats de la recherche sur theses.fr
 theses_liens <- build_phd_table(resultats)#recup des informations importantes dans le code html et les met en forme dans un tableau df
