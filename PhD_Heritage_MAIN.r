@@ -9,7 +9,7 @@ library(igraph)#pour faire des graphes
 library(rvest)#recup du contenu html distant et parser les noeuds html
 # library(pingr)
 library(httr)#pour requetes http
-# library(jsonlite)#manipuler des json
+library(jsonlite)#manipuler des json
 library(sf)
 library(mapview)
 # library(geojsonsf)#convertir un geojson en sf sur R
@@ -24,66 +24,66 @@ langue <- "fr"
 #------------------ FONCTIONS -------------------------------------
 #-----------------------------------------------------------------
 
-#------Récupération des résultats de recherche sur theses.fr-----------
+#------RÃ©cupÃ©ration des rÃ©sultats de recherche sur theses.fr-----------
 
 build_phd_url <- function(discipline, motcles){
-  ###Fonction qui construit l'url de theses.fr avec la discipline et les mots clés passés en paramètres. Le code HTML qui contient les résultats est retourné
+  ###Fonction qui construit l'url de theses.fr avec la discipline et les mots clÃ©s passÃ©s en paramÃ¨tres. Le code HTML qui contient les rÃ©sultats est retournÃ©
   
   motcles <- motcles %>% str_replace_all(" ", "%20")
   
-  url_base <- paste("https://theses.fr/fr/?q=",motcles,"&status=status:soutenue&checkedfacets=discipline=",discipline, sep="") #création de la requête http get
+  url_base <- paste("https://theses.fr/fr/?q=",motcles,"&status=status:soutenue&checkedfacets=discipline=",discipline, sep="") #crÃ©ation de la requÃªte http get
 }
 
 get_resultats <- function(url_base){
-  #fonction qui effectue la requete et retourne le résultat html brut
-  print("URL de la requête : ")
-  print(url_base) #vérif de l'url
-  print("Requête en cours")
-  page_accueil <- read_html(url_base) #requete get et récup du code html
-  print("requête OK")
-  result_recherche <- page_accueil %>% html_nodes("div#resultat") #on récup sur la page la div contenant les résultats de la recherche
+  #fonction qui effectue la requete et retourne le rÃ©sultat html brut
+  print("URL de la requÃªte : ")
+  print(url_base) #vÃ©rif de l'url
+  print("RequÃªte en cours")
+  page_accueil <- read_html(url_base) #requete get et rÃ©cup du code html
+  print("requÃªte OK")
+  result_recherche <- page_accueil %>% html_nodes("div#resultat") #on rÃ©cup sur la page la div contenant les rÃ©sultats de la recherche
   return(result_recherche)
 }
 
 
-#-----------Construction d'un tableau de données à partir du résultat html---------------
+#-----------Construction d'un tableau de donnÃ©es Ã  partir du rÃ©sultat html---------------
 
 build_phd_table <- function(results, export=T){
-  infos_theses <- resultats %>% html_nodes("div.informations") #on récup dans les résultats les div contenant les infos de chaque thèse
+  infos_theses <- resultats %>% html_nodes("div.informations") #on rÃ©cup dans les rÃ©sultats les div contenant les infos de chaque thÃ¨se
   
   infos_tmp <- infos_theses %>% html_text() %>% data.frame(RESULTS = .) #on convertir le html en texte pour affichage test
-  infos_tmp$RESULTS #affichage des intitulés pour vérif
+  infos_tmp$RESULTS #affichage des intitulÃ©s pour vÃ©rif
   
   
-  print("récupération de l'année de soutenance...")
-  #dans la div resultats on récup les dates (petit encart à droite du nom de la thèse)
-  dates_theses <- resultats %>% html_nodes("h5.soutenue") %>% html_text() #récupération du contenue du petit encart soutenue à droite, dans un titre h5 de classe "soutenue" (texte vert sur le site)
+  print("rÃ©cupÃ©ration de l'annÃ©e de soutenance...")
+  #dans la div resultats on rÃ©cup les dates (petit encart Ã  droite du nom de la thÃ¨se)
+  dates_theses <- resultats %>% html_nodes("h5.soutenue") %>% html_text() #rÃ©cupÃ©ration du contenue du petit encart soutenue Ã  droite, dans un titre h5 de classe "soutenue" (texte vert sur le site)
   dates_theses <- str_split(string=dates_theses, pattern=" ", simplify=TRUE)[,3] #on split le texte pour ne garder que la date
-  dates_theses <- dates_theses %>% str_sub(., -4, -1) %>% as.integer()#on ne garde que l'année, convertie en nombre entier
-  print("récupération de la discipline et des titres des thèses...")
-  #on récupère la discipline
-  discipline_theses <- resultats %>% html_nodes("div.domaine") %>% html_node("h5") %>% html_text() #nom de la discipline dans une div de classe "domaine" (puis titre h5) dans l'encart à droite, convertie ensuite en texte
+  dates_theses <- dates_theses %>% str_sub(., -4, -1) %>% as.integer()#on ne garde que l'annÃ©e, convertie en nombre entier
+  print("rÃ©cupÃ©ration de la discipline et des titres des thÃ¨ses...")
+  #on rÃ©cupÃ¨re la discipline
+  discipline_theses <- resultats %>% html_nodes("div.domaine") %>% html_node("h5") %>% html_text() #nom de la discipline dans une div de classe "domaine" (puis titre h5) dans l'encart Ã  droite, convertie ensuite en texte
   
-  #on récupère les noms, qui sont dans un lien dans un titre h2
+  #on rÃ©cupÃ¨re les noms, qui sont dans un lien dans un titre h2
   noms_theses <- infos_theses %>% html_nodes("h2") %>% html_text() %>% str_replace_all("\r\n", "")
   
   print("Infos sur l'auteur...")
-  #on récupère l'auteur
+  #on rÃ©cupÃ¨re l'auteur
   auteurs_theses <- infos_theses %>% html_nodes("p") %>% html_text()
   auteurs_theses <- str_split(auteurs_theses, pattern="\r\n", simplify = TRUE)[,1]
   auteurs_theses <- auteurs_theses %>% str_replace("par ", "") %>% str_to_title(locale=langue)
   #id de l'auteur #premier lien a du paragraphe p
   id_auteur <- infos_theses %>% html_node("p a:nth-child(1)") %>% html_attr("href") %>% substr(2,nchar(.))
   
-  print("infos sur le directeur de thèse...")
-  #on récupère l'encadrant numéro 1 et l'université de soutenance
+  print("infos sur le directeur de thÃ¨se...")
+  #on rÃ©cupÃ¨re l'encadrant numÃ©ro 1 et l'universitÃ© de soutenance
   #nom du directeur
   dir_theses <- infos_theses %>% html_nodes("p") %>% html_text()
   dir_theses <- str_split(dir_theses, pattern="sous la direction de", simplify=TRUE)
   dir_theses <- dir_theses[,2] %>% str_replace_all("\r\n", "") %>% str_replace_all(" \r\n", "") %>% substr(x=.,start=2, stop=nchar(.))
   directeur_theses <- str_split(dir_theses, pattern=" - ", simplify=TRUE)[,1]
   directeur_theses <- str_split(directeur_theses, pattern=" et de ", simplify=TRUE)[,1]
-  #id du dirthese #deuxième lien a du paragraphe p
+  #id du dirthese #deuxiÃ¨me lien a du paragraphe p
   id_dirtheses <- infos_theses %>% html_nodes("p a:nth-child(2)") %>% html_attr("href") %>% substr(2,nchar(.)) %>% str_replace_all("fr/", "")
   #univ du directeur
   univ_theses <- str_split(dir_theses, pattern=" - ", simplify=TRUE)[,2] %>% substr(x=.,start=1, stop=nchar(.)-2)
@@ -106,17 +106,18 @@ build_phd_table <- function(results, export=T){
 #----------------------- FONCTIONS EXPERIMENTALES  --------------------
 #------------------------------------------------------------------
 
-#------géocodage à partir du nom de l'université de soutenance, en utilisant l'API BAN----
+
+#------gÃ©ocodage Ã  partir du nom de l'universitÃ© de soutenance, en utilisant l'API BAN----
 
 geocode_phds_from_column <- function(table, champ_a_traiter){
-  write.csv(table, "table_a_geocoder.csv")#la table passée en paramètre est exportée en csv
+  write.csv(table, "table_a_geocoder.csv")#la table passÃ©e en paramÃ¨tre est exportÃ©e en csv
   
-  ###utilisation de l'API BAN de l'Etat FR pour géocoder un CSV qui est envoyé en méthode POST dans le paramètre data, avec un paramètre columns qui spécifie la colonne sur laquelle doit se baser le geocodage. result_columns permet de filtrer les colonnes souhaitées en résultat. Voir https://adresse.data.gouv.fr/api-doc/adresse
+  ###utilisation de l'API BAN de l'Etat FR pour gÃ©ocoder un CSV qui est envoyÃ© en mÃ©thode POST dans le paramÃ¨tre data, avec un paramÃ¨tre columns qui spÃ©cifie la colonne sur laquelle doit se baser le geocodage. result_columns permet de filtrer les colonnes souhaitÃ©es en rÃ©sultat. Voir https://adresse.data.gouv.fr/api-doc/adresse
   print("geocodage en cours...")
   url_apiban <- "https://api-adresse.data.gouv.fr/search/csv/"
-  raw_response_content <- content(#content permet de ne récupérer que le contenu de la reponse, débarassée des en-têtes et autres infos
+  raw_response_content <- content(#content permet de ne rÃ©cupÃ©rer que le contenu de la reponse, dÃ©barassÃ©e des en-tÃªtes et autres infos
     POST(
-      url = url_apiban,#url où faire la requete
+      url = url_apiban,#url oÃ¹ faire la requete
       body = list(data=upload_file("table_a_geocoder.csv"), 
                   columns=champ_a_traiter, 
                   result_columns="latitude", 
@@ -126,18 +127,42 @@ geocode_phds_from_column <- function(table, champ_a_traiter){
       verbose()#affichage des infos requete en console
     ),
     as = "raw",
-    content_type="text/csv"#on precise que la réponse est un document csv
+    content_type="text/csv"#on precise que la rÃ©ponse est un document csv
   )
-  #par défaut, le csv est encodé en hexadecimal : on le convertit en chaines de caractères classique
+  #par dÃ©faut, le csv est encodÃ© en hexadecimal : on le convertit en chaines de caractÃ¨res classique
   response_content <- rawToChar(raw_response_content)
 
-  write_lines(response_content, file="table_geocoded.txt", sep="\n")#le texte brut du csv est exporté ligne   par ligne (les lignes sont séparées par "\n")
+  write_lines(response_content, file="table_geocoded.txt", sep="\n")#le texte brut du csv est exportÃ© ligne   par ligne (les lignes sont sÃ©parÃ©es par "\n")
 
-  geocoded_data <- read.csv(file="table_geocoded.txt", encoding = "UTF-8")#on lit le fichier texte comme s'il s'agissait d'un csv. On le récupère donc en dataframe
+  geocoded_data <- read.csv(file="table_geocoded.txt", encoding = "UTF-8")#on lit le fichier texte comme s'il s'agissait d'un csv. On le rÃ©cupÃ¨re donc en dataframe
   print(geocoded_data)
   geocoded_data <- geocoded_data %>% st_as_sf(coords=c("longitude", "latitude"), crs="EPSG:4326")
   print("OK")
   return(geocoded_data)
+}
+
+
+#meme chose que get_results() mais en utlisant API. la reponse est au format json
+
+phd_request <- function(disc, keyword){
+  keyword <- keyword %>% str_replace_all(" ", "%20")
+  disc_prep <- paste("discipline", disc, sep = "=")
+  print("RequÃªte sur API en cours...")
+  result <- content(
+    GET(url = "https://www.theses.fr/fr/", path=langue, query=list(q = keyword, format = "json", checkedfacets="discipline=Sociologie")),
+    as="raw",
+    content_type("application/json")
+  )
+  print("RequÃªte OK")
+  print(result)
+  print("Conversion du rÃ©sultat...")
+  result_txt <- rawToChar(result) %>% enc2utf8()
+  print(result_txt)
+  resultat_df <- jsonlite::fromJSON(result_txt)
+  print(resultat_df)
+  resultats_finaux <- resultat_df$response$docs
+  print("OK")
+  return(resultats_finaux)
 }
 
 
@@ -149,7 +174,7 @@ geocode_phds_from_column <- function(table, champ_a_traiter){
 
 discipline_saisie <- readline("Discipline : ") #ex : Taper "Geographie"
 
-motcles_saisis <- readline("mots clés ? : ")#ex : Taper "Thérèse Saint-Julien" ou "mobilités ferroviaires" 
+motcles_saisis <- readline("mots clÃ©s ? : ")#ex : Taper "ThÃ©rÃ¨se Saint-Julien" ou "mobilitÃ©s ferroviaires" 
 url <- build_phd_url(discipline_saisie, motcles_saisis)
 resultats <- get_resultats(url)#on va requeter theses.fr et renvoyer le code html contenant les resultats de la recherche sur theses.fr
 theses_liens <- build_phd_table(resultats)#recup des informations importantes dans le code html et les met en forme dans un tableau df
@@ -158,8 +183,14 @@ theses_lien_geocoded <- geocode_phds_from_column(theses_liens, "UNIV_DIR")
 mapview(theses_lien_geocoded)
 
 
-######----------------------bac à merde------------------------------
+######----------------------bac Ã  merde------------------------------
+#resultat depuis API en json et non depuis un scrapping degueu (inachevÃ©)
+theses_liens_from_json <- phd_request(discipline_saisie, motcles_saisis)
+theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etablissement") #Ã§a marche pas :'()
 
+
+
+#debut de tentative de boucles pour constrituer une matrice de liens
 url_session <- session(url)
 liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href")
 html_fils <- url_session %>% session_jump_to("/081900597")
