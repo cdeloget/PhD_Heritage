@@ -149,17 +149,17 @@ phd_request <- function(disc, keyword){
   disc_prep <- paste("discipline", disc, sep = "=")
   print("Requête sur API en cours...")
   result <- content(
-    GET(url = "https://www.theses.fr/fr/", path=langue, query=list(q = keyword, format = "json", checkedfacets="discipline=Sociologie")),
+    GET(url = "https://www.theses.fr/fr/", path=langue, query=list(q = keyword, format = "json", checkedfacets = disc_prep)),
     as="raw",
     content_type("application/json")
   )
   print("Requête OK")
-  print(result)
+  #print(result)
   print("Conversion du résultat...")
   result_txt <- rawToChar(result) %>% enc2utf8()
-  print(result_txt)
+  #print(result_txt)
   resultat_df <- jsonlite::fromJSON(result_txt)
-  print(resultat_df)
+  #print(resultat_df)
   resultats_finaux <- resultat_df$response$docs
   print("OK")
   return(resultats_finaux)
