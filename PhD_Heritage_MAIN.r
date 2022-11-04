@@ -156,7 +156,8 @@ phd_request <- function(disc, keyword){
   print("Requête OK")
   #print(result)
   print("Conversion du résultat...")
-  result_txt <- rawToChar(result) %>% enc2utf8()
+  result_txt <- rawToChar(result)
+  result_txt <- str_conv(result_txt, "UTF-8")
   #print(result_txt)
   resultat_df <- jsonlite::fromJSON(result_txt)
   #print(resultat_df)
@@ -186,17 +187,22 @@ mapview(theses_lien_geocoded)
 ######----------------------bac à merde------------------------------
 #resultat depuis API en json et non depuis un scrapping degueu (inachevé)
 theses_liens_from_json <- phd_request(discipline_saisie, motcles_saisis)
-theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etablissement") #ça marche pas :'()
+theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance") #ça marche pas :'()
 
 
 
-#debut de tentative de boucles pour constrituer une matrice de liens
+#debut de tentative de boucles pour constituer une matrice de liens
 url_session <- session(url)
 liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href")
-html_fils <- url_session %>% session_jump_to("/081900597")
-fils <- read_html(url_session$url)
-motcles_fils <- fils %>% html_node("div#nuages") %>% html_text()
-nom_fils <-  fils %>% html_node("h1") %>% html_text()
-fils_info <- data.frame(ID_F=liens[1], NOM_F = nom_fils, MOTCLE = motcles_fils)
+liens_from_json <- theses_liens_from_json$directeurThesePpn
 
-?session_jump_to
+fils_info_tot <- data.frame()
+for (i in seq(1, length(liens))){
+  print(paste("Lien numéro ", i, sep=" "))
+  html_fils <- url_session %>% session_jump_to(paste("https://theses.fr", liens[i], sep=""))
+  fils <- read_html(html_fils$url)
+  motcles_fils <- fils %>% html_node("div#nuages") %>% html_text()
+  nom_fils <-  fils %>% html_node("h1") %>% html_text()
+  fils_info <- data.frame(ID_F=liens[i], NOM_F = nom_fils, MOTCLE = motcles_fils)
+  fils_info_tot <- rbind(fils_info_tot, fils_info)
+}
