@@ -191,18 +191,23 @@ theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "e
 
 
 
-#debut de tentative de boucles pour constituer une matrice de liens
-url_session <- session(url)
-liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href")
-liens_from_json <- theses_liens_from_json$directeurThesePpn
+#debut de tentative de boucles pour constituer une matrice de liens (branche boucles sur GIT)
+url_session <- session(url) #on crée une session de navigation à partir de l'url de la recherche initiale
+#liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href") #on peut récupérer les liens des directeurs de thèses depuis la recheche en scrapping html
+liens_from_json <- theses_liens_from_json$directeurThesePpn #ou bien les récup depuis le résultat en json
 
-fils_info_tot <- data.frame()
-for (i in seq(1, length(liens))){
+for (i in seq(1,length(liens_from_json))){ #on vérifie visuellement que les liens sont bien ok
+  print(liens_from_json[[i]][1])
+}
+
+fils_info_tot <- data.frame() #on crée un df vide qui contiendra les résultats
+for (i in seq(1, length(liens_from_json))){ #pour chaque dir these
   print(paste("Lien numéro ", i, sep=" "))
-  html_fils <- url_session %>% session_jump_to(paste("https://theses.fr", liens[i], sep=""))
-  fils <- read_html(html_fils$url)
-  motcles_fils <- fils %>% html_node("div#nuages") %>% html_text()
-  nom_fils <-  fils %>% html_node("h1") %>% html_text()
-  fils_info <- data.frame(ID_F=liens[i], NOM_F = nom_fils, MOTCLE = motcles_fils)
-  fils_info_tot <- rbind(fils_info_tot, fils_info)
+  # on va, grace à la session de nav, sur sa page grace à son id
+  html_fils <- url_session %>% session_jump_to(paste("https://theses.fr", liens_from_json[[i]][1], sep="/"))
+  fils <- read_html(html_fils$url)#on récup le contenu html de sa page
+  motcles_fils <- fils %>% html_node("div#nuages") %>% html_text() #on isole les keywords du dirthese
+  nom_fils <-  fils %>% html_node("h1") %>% html_text() #on isole son nom
+  fils_info <- data.frame(ID_F=liens_from_json[[i]][1], NOM_F = nom_fils, MOTCLE = motcles_fils) #on met toutes ses données dans un df temporaire
+  fils_info_tot <- rbind(fils_info_tot, fils_info) #qu'on ajoute au df global crée avant la boucle
 }
