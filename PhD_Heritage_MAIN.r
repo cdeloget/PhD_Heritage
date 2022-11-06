@@ -212,3 +212,5 @@ for (i in seq(1, length(liens_from_json))){ #pour chaque dir these
   dirtheses_info <- data.frame(ID_DIR=liens_from_json[[i]][1], NOM_DIR = nom_dirtheses, MOTCLE = motcles_dirtheses) #on met toutes ses données dans un df temporaire
   dirtheses_info_tot <- rbind(dirtheses_info_tot, dirtheses_info) #qu'on ajoute au df global crée avant la boucle
 }
+
+
