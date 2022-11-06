@@ -12,6 +12,7 @@ library(httr)#pour requetes http
 library(jsonlite)#manipuler des json
 library(sf)
 library(mapview)
+library(lubridate)
 # library(geojsonsf)#convertir un geojson en sf sur R
 
 
@@ -200,14 +201,14 @@ for (i in seq(1,length(liens_from_json))){ #on vérifie visuellement que les lie
   print(liens_from_json[[i]][1])
 }
 
-fils_info_tot <- data.frame() #on crée un df vide qui contiendra les résultats
+dirtheses_info_tot <- data.frame() #on crée un df vide qui contiendra les résultats
 for (i in seq(1, length(liens_from_json))){ #pour chaque dir these
-  print(paste("Lien numéro ", i, sep=" "))
+  print(paste("Lien numéro ", i, "Nom :", liens_from_json[[i]][1], sep=" "))
   # on va, grace à la session de nav, sur sa page grace à son id
-  html_fils <- url_session %>% session_jump_to(paste("https://theses.fr", liens_from_json[[i]][1], sep="/"))
-  fils <- read_html(html_fils$url)#on récup le contenu html de sa page
-  motcles_fils <- fils %>% html_node("div#nuages") %>% html_text() #on isole les keywords du dirthese
-  nom_fils <-  fils %>% html_node("h1") %>% html_text() #on isole son nom
-  fils_info <- data.frame(ID_F=liens_from_json[[i]][1], NOM_F = nom_fils, MOTCLE = motcles_fils) #on met toutes ses données dans un df temporaire
-  fils_info_tot <- rbind(fils_info_tot, fils_info) #qu'on ajoute au df global crée avant la boucle
+  session_dirtheses <- url_session %>% session_jump_to(paste("https://theses.fr", liens_from_json[[i]][1], sep="/"))
+  dirtheses <- read_html(session_dirtheses$url)#on récup le contenu html de sa page
+  motcles_dirtheses <- dirtheses %>% html_node("div#nuages") %>% html_text() #on isole les keywords du dirthese
+  nom_dirtheses <-  dirtheses %>% html_node("h1") %>% html_text() #on isole son nom
+  dirtheses_info <- data.frame(ID_DIR=liens_from_json[[i]][1], NOM_DIR = nom_dirtheses, MOTCLE = motcles_dirtheses) #on met toutes ses données dans un df temporaire
+  dirtheses_info_tot <- rbind(dirtheses_info_tot, dirtheses_info) #qu'on ajoute au df global crée avant la boucle
 }
