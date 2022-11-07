@@ -68,7 +68,7 @@ build_phd_table <- function(results, export=T){
   print("récupération de la discipline et des titres des thèses...")
   #on récupère la discipline
   discipline_theses <- resultats %>% html_nodes("div.domaine") %>% html_node("h5") %>% html_text() #nom de la discipline dans une div de classe "domaine" (puis titre h5) dans l'encart à droite, convertie ensuite en texte
-  
+  id_theses <- infos_theses %>% html_node("h2 a") %>% html_attr("href") %>% as.character()
   #on récupère les noms, qui sont dans un lien dans un titre h2
   noms_theses <- infos_theses %>% html_nodes("h2") %>% html_text() %>% str_replace_all("\r\n", "")
   
@@ -94,7 +94,7 @@ build_phd_table <- function(results, export=T){
   univ_theses <- str_split(dir_theses, pattern=" - ", simplify=TRUE)[,2] %>% substr(x=.,start=1, stop=nchar(.)-2)
   
   print("Mise en forme dans un data frame")
-  LIENS <- data.frame(ID_AUTEUR= id_auteur, AUTEUR=auteurs_theses, ANNEE= dates_theses, ID_DIR=as.character(id_dirtheses), DIR=directeur_theses, UNIV_DIR= univ_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
+  LIENS <- data.frame(ID_THESE= id_theses, ID_AUTEUR= id_auteur, AUTEUR=auteurs_theses, ANNEE= dates_theses, ID_DIR=as.character(id_dirtheses), DIR=directeur_theses, UNIV_DIR= univ_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
   
   
   if (export==T){#si utilisateur a choisi export en csv :
