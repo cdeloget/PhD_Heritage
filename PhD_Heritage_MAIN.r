@@ -258,14 +258,4 @@ hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_li
 theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance")
 class(theses_liensJSON_geocoded)
 mapview(theses_liensJSON_geocoded)
-theses_liensJSON_geocoded$
-######----------------------bac à merde------------------------------
 
-ENFANTS <- get_childs_from_results(url=url, theses_liens_from_json)
-PARENTS <- get_dirthese_from_results(url=url, theses_liens_from_json)
-
-id_auteur_a_tester <- "05737726X"
-test_results <- get_resultats(url_base = paste("https://theses.fr/", id_auteur_a_tester, "#directeurSoutenue", sep=""))
-test_table_fils <- build_phd_table(results = test_results, export = F)
-test_table_fils$AUTEUR <- str_split(test_table_fils$AUTEUR, pattern="  ", simplify = T)[,2]
-test_table_fils <- test_table_fils %>% filter(ID_DIR == id_auteur_a_tester)
