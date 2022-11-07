@@ -268,4 +268,4 @@ id_auteur_a_tester <- "05737726X"
 test_results <- get_resultats(url_base = paste("https://theses.fr/", id_auteur_a_tester, "#directeurSoutenue", sep=""))
 test_table_fils <- build_phd_table(results = test_results, export = F)
 test_table_fils$AUTEUR <- str_split(test_table_fils$AUTEUR, pattern="  ", simplify = T)[,2]
-test_table_fils <- test_table_fils %>% filter(ID_DIR == id_auteur_a_tester)
+test_table_fils <- test_table_fils %>% filter(ID_DIR == id_auteur_a_tester)   
