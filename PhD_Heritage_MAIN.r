@@ -5,7 +5,11 @@
 # install.packages(c("tidyverse", "igraph", "rvest", "pingr", "httr", "jsonlite", "sf", "geojsonsf"))
 
 library(tidyverse)#dplyr, pipe etc. Hadley Wickham le boss
+library(dplyr)
+library(magrittr)
+library(stringr)
 library(igraph)#pour faire des graphes
+library(data.table)
 library(rvest)#recup du contenu html distant et parser les noeuds html
 # library(pingr)
 library(httr)#pour requetes http
@@ -50,9 +54,9 @@ get_resultats <- function(url_base){
 #-----------Construction d'un tableau de données à partir du résultat html---------------
 
 build_phd_table <- function(results, export=T){
-  infos_theses <- resultats %>% html_nodes("div.informations") #on récup dans les résultats les div contenant les infos de chaque thèse
+  infos_theses <- results %>% rvest::html_nodes("div.informations") #on récup dans les résultats les div contenant les infos de chaque thèse
   
-  infos_tmp <- infos_theses %>% html_text() %>% data.frame(RESULTS = .) #on convertir le html en texte pour affichage test
+  infos_tmp <- infos_theses %>% rvest::html_text() %>% data.frame(RESULTS = .) #on convertir le html en texte pour affichage test
   infos_tmp$RESULTS #affichage des intitulés pour vérif
   
   
@@ -85,12 +89,12 @@ build_phd_table <- function(results, export=T){
   directeur_theses <- str_split(dir_theses, pattern=" - ", simplify=TRUE)[,1]
   directeur_theses <- str_split(directeur_theses, pattern=" et de ", simplify=TRUE)[,1]
   #id du dirthese #deuxième lien a du paragraphe p
-  id_dirtheses <- infos_theses %>% html_nodes("p a:nth-child(2)") %>% html_attr("href") %>% substr(2,nchar(.)) %>% str_replace_all("fr/", "")
+  id_dirtheses <- infos_theses %>% html_nodes("p a:nth-child(2)") %>% html_attr("href") %>% str_replace_all("/", "") %>% str_replace_all("fr/", "") %>% as.character()
   #univ du directeur
   univ_theses <- str_split(dir_theses, pattern=" - ", simplify=TRUE)[,2] %>% substr(x=.,start=1, stop=nchar(.)-2)
   
   print("Mise en forme dans un data frame")
-  LIENS <- data.frame(ID_AUTEUR= id_auteur, AUTEUR=auteurs_theses, ANNEE= dates_theses, ID_DIR=id_dirtheses, DIR=directeur_theses, UNIV_DIR= univ_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
+  LIENS <- data.frame(ID_AUTEUR= id_auteur, AUTEUR=auteurs_theses, ANNEE= dates_theses, ID_DIR=as.character(id_dirtheses), DIR=directeur_theses, UNIV_DIR= univ_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
   
   
   if (export==T){#si utilisateur a choisi export en csv :
@@ -111,8 +115,8 @@ build_phd_table <- function(results, export=T){
 #------géocodage à partir du nom de l'université de soutenance, en utilisant l'API BAN----
 
 geocode_phds_from_column <- function(table, champ_a_traiter){
-  write.csv(table, "table_a_geocoder.csv")#la table passée en paramètre est exportée en csv
-  
+  table_a_geocoder <- table %>% select(id, champ_a_traiter)
+  write.csv(table_a_geocoder, "table_a_geocoder.csv")#la table passée en paramètre est exportée en csv
   ###utilisation de l'API BAN de l'Etat FR pour géocoder un CSV qui est envoyé en méthode POST dans le paramètre data, avec un paramètre columns qui spécifie la colonne sur laquelle doit se baser le geocodage. result_columns permet de filtrer les colonnes souhaitées en résultat. Voir https://adresse.data.gouv.fr/api-doc/adresse
   print("geocodage en cours...")
   url_apiban <- "https://api-adresse.data.gouv.fr/search/csv/"
@@ -132,14 +136,19 @@ geocode_phds_from_column <- function(table, champ_a_traiter){
   )
   #par défaut, le csv est encodé en hexadecimal : on le convertit en chaines de caractères classique
   response_content <- rawToChar(raw_response_content)
-
-  write_lines(response_content, file="table_geocoded.txt", sep="\n")#le texte brut du csv est exporté ligne   par ligne (les lignes sont séparées par "\n")
-
+  file_con <- file("table_geocoded.txt")
+  writeLines(response_content, con=file_con, sep="\n")#le texte brut du csv est exporté ligne   par ligne (les lignes sont séparées par "\n")
+  close(con = file_con)
   geocoded_data <- read.csv(file="table_geocoded.txt", encoding = "UTF-8")#on lit le fichier texte comme s'il s'agissait d'un csv. On le récupère donc en dataframe
-  print(geocoded_data)
-  geocoded_data <- geocoded_data %>% st_as_sf(coords=c("longitude", "latitude"), crs="EPSG:4326")
+  print("transformation en spatial feature...")
+  geocoded_data <- geocoded_data %>% filter(!is.na(latitude) | !is.na(longitude)) %>% st_as_sf(coords = c("longitude", "latitude"), crs="EPSG:4326")
+  geocoded_data$id <- as.character(geocoded_data$id)
+  print("jointure avec table de base")
+  geocoded_data_sf <- left_join(x=table, y=geocoded_data, by=c("id" = "id"))
+
+  print(geocoded_data_sf)
   print("OK")
-  return(geocoded_data)
+  return(geocoded_data_sf)
 }
 
 
@@ -156,7 +165,7 @@ phd_request <- function(disc, keyword){
   )
   print("Requête OK")
   #print(result)
-  print("Conversion du résultat...")
+  print("Conversion du résultat (json brut vers un dataframe)...")
   result_txt <- rawToChar(result)
   result_txt <- str_conv(result_txt, "UTF-8")
   #print(result_txt)
@@ -166,6 +175,60 @@ phd_request <- function(disc, keyword){
   print("OK")
   return(resultats_finaux)
 }
+
+
+get_dirthese_from_results <- function(url, phd_table){
+  
+  #debut de tentative de boucles pour constituer une matrice de liens (branche boucles sur GIT)
+  url_session <- session(url) #on crée une session de navigation à partir de l'url de la recherche initiale
+  #liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href") #on peut récupérer les liens des directeurs de thèses depuis la recheche en scrapping html
+  id_dirtheses <- phd_table$directeurThesePpn #ou bien les récup depuis le résultat en json
+  
+  for (i in seq(1,length(id_dirtheses))){ #on vérifie visuellement que les liens sont bien ok
+    print(id_dirtheses[[i]][1])
+  }
+  
+  dirtheses_info_tot <- data.frame() #on crée un df vide qui contiendra les résultats
+  for (i in seq(1, length(id_dirtheses))){ #pour chaque dir these
+    # on va, grace à la session de nav, sur sa page grace à son id
+    session_dirtheses <- url_session %>% session_jump_to(paste("https://theses.fr", id_dirtheses[[i]][1], sep="/"))
+    dirtheses <- read_html(session_dirtheses$url)#on récup le contenu html de sa page
+    motcles_dirtheses <- dirtheses %>% html_node("div#nuages") %>% html_text() #on isole les keywords du dirthese
+    nom_dirtheses <-  dirtheses %>% html_node("h1") %>% html_text() #on isole son nom
+    print(paste("Lien numéro ", i, "Id :", id_dirtheses[[i]][1], "Nom :", nom_dirtheses, sep=" "))
+    dirtheses_info <- data.frame(ID_DIR=id_dirtheses[[i]][1], NOM_DIR = nom_dirtheses, MOTCLE = motcles_dirtheses) #on met toutes ses données dans un df temporaire
+    dirtheses_info_tot <- rbind(dirtheses_info_tot, dirtheses_info) #qu'on ajoute au df global crée avant la boucle
+  }
+  return(dirtheses_info_tot)
+}
+
+
+get_childs_from_results <- function(url, phd_table){
+  
+  #debut de tentative de boucles pour constituer une matrice de liens (branche boucles sur GIT)
+  url_session <- session(url) #on crée une session de navigation à partir de l'url de la recherche initiale
+  #liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href") #on peut récupérer les liens des directeurs de thèses depuis la recheche en scrapping html
+  id_fils <- phd_table$auteurPpn #ou bien les récup depuis le résultat en json
+  
+  for (i in seq(1,length(id_fils))){ #on vérifie visuellement que les liens sont bien ok
+    print(id_fils[[i]][1])
+  }
+  
+  fils_info_tot <- data.frame() #on crée un df vide qui contiendra les résultats
+  for (i in seq(1, length(id_fils))){ #pour chaque dir these
+    # on va, grace à la session de nav, sur sa page grace à son id
+    session_fils <- url_session %>% session_jump_to(paste("https://theses.fr", id_fils[[i]][1], sep="/"))
+    fils <- read_html(session_fils$url)#on récup le contenu html de sa page
+    motcles_fils <- fils %>% html_node("div#nuages") %>% html_text() #on isole les keywords du dirthese
+    nom_fils <-  fils %>% html_node("h1") %>% html_text() #on isole son nom
+    print(paste("Lien numéro ", i, "Id :", id_fils[[i]][1], "Nom :", nom_fils, sep=" "))
+    fils_info <- data.frame(ID_F=id_fils[[i]][1], NOM_F = nom_fils, MOTCLE = motcles_fils) #on met toutes ses données dans un df temporaire
+    fils_info_tot <- rbind(fils_info_tot, fils_info) #qu'on ajoute au df global crée avant la boucle
+  }
+  return(fils_info_tot)
+  
+}
+
 
 
 
@@ -178,39 +241,31 @@ discipline_saisie <- readline("Discipline : ") #ex : Taper "Geographie"
 
 motcles_saisis <- readline("mots clés ? : ")#ex : Taper "Thérèse Saint-Julien" ou "mobilités ferroviaires" 
 url <- build_phd_url(discipline_saisie, motcles_saisis)
+
 resultats <- get_resultats(url)#on va requeter theses.fr et renvoyer le code html contenant les resultats de la recherche sur theses.fr
+
 theses_liens <- build_phd_table(resultats)#recup des informations importantes dans le code html et les met en forme dans un tableau df
-View(theses_liens)
-theses_lien_geocoded <- geocode_phds_from_column(theses_liens, "UNIV_DIR")
-mapview(theses_lien_geocoded)
+
+#View(theses_liens)
 
 
-######----------------------bac à merde------------------------------
+
 #resultat depuis API en json et non depuis un scrapping degueu (inachevé)
 theses_liens_from_json <- phd_request(discipline_saisie, motcles_saisis)
-theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance") #ça marche pas :'()
 
+hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_liens_from_json$dateSoutenance)), xlab = "année de soutenance", ylab="nombre de soutenances")
 
+theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance")
+class(theses_liensJSON_geocoded)
+mapview(theses_liensJSON_geocoded)
+theses_liensJSON_geocoded$
+######----------------------bac à merde------------------------------
 
-#debut de tentative de boucles pour constituer une matrice de liens (branche boucles sur GIT)
-url_session <- session(url) #on crée une session de navigation à partir de l'url de la recherche initiale
-#liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href") #on peut récupérer les liens des directeurs de thèses depuis la recheche en scrapping html
-liens_from_json <- theses_liens_from_json$directeurThesePpn #ou bien les récup depuis le résultat en json
+ENFANTS <- get_childs_from_results(url=url, theses_liens_from_json)
+PARENTS <- get_dirthese_from_results(url=url, theses_liens_from_json)
 
-for (i in seq(1,length(liens_from_json))){ #on vérifie visuellement que les liens sont bien ok
-  print(liens_from_json[[i]][1])
-}
-
-dirtheses_info_tot <- data.frame() #on crée un df vide qui contiendra les résultats
-for (i in seq(1, length(liens_from_json))){ #pour chaque dir these
-  print(paste("Lien numéro ", i, "Nom :", liens_from_json[[i]][1], sep=" "))
-  # on va, grace à la session de nav, sur sa page grace à son id
-  session_dirtheses <- url_session %>% session_jump_to(paste("https://theses.fr", liens_from_json[[i]][1], sep="/"))
-  dirtheses <- read_html(session_dirtheses$url)#on récup le contenu html de sa page
-  motcles_dirtheses <- dirtheses %>% html_node("div#nuages") %>% html_text() #on isole les keywords du dirthese
-  nom_dirtheses <-  dirtheses %>% html_node("h1") %>% html_text() #on isole son nom
-  dirtheses_info <- data.frame(ID_DIR=liens_from_json[[i]][1], NOM_DIR = nom_dirtheses, MOTCLE = motcles_dirtheses) #on met toutes ses données dans un df temporaire
-  dirtheses_info_tot <- rbind(dirtheses_info_tot, dirtheses_info) #qu'on ajoute au df global crée avant la boucle
-}
-
-
+id_auteur_a_tester <- "05737726X"
+test_results <- get_resultats(url_base = paste("https://theses.fr/", id_auteur_a_tester, "#directeurSoutenue", sep=""))
+test_table_fils <- build_phd_table(results = test_results, export = F)
+test_table_fils$AUTEUR <- str_split(test_table_fils$AUTEUR, pattern="  ", simplify = T)[,2]
+test_table_fils <- test_table_fils %>% filter(ID_DIR == id_auteur_a_tester)
