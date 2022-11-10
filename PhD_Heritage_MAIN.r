@@ -5,9 +5,9 @@
 # install.packages(c("tidyverse", "igraph", "rvest", "pingr", "httr", "jsonlite", "sf", "geojsonsf"))
 
 library(tidyverse)#dplyr, pipe etc. Hadley Wickham le boss
-library(dplyr)
-library(magrittr)
-library(stringr)
+# library(dplyr)
+# library(magrittr)
+# library(stringr)
 library(igraph)#pour faire des graphes
 library(data.table)
 library(rvest)#recup du contenu html distant et parser les noeuds html
@@ -62,12 +62,12 @@ build_phd_table <- function(results, export=T){
   
   print("récupération de l'année de soutenance...")
   #dans la div resultats on récup les dates (petit encart à droite du nom de la thèse)
-  dates_theses <- resultats %>% html_nodes("h5.soutenue") %>% html_text() #récupération du contenue du petit encart soutenue à droite, dans un titre h5 de classe "soutenue" (texte vert sur le site)
-  dates_theses <- str_split(string=dates_theses, pattern=" ", simplify=TRUE)[,3] #on split le texte pour ne garder que la date
-  dates_theses <- dates_theses %>% str_sub(., -4, -1) %>% as.integer()#on ne garde que l'année, convertie en nombre entier
+  # dates_theses <- results %>% html_nodes("h5.soutenue") %>% html_text() #récupération du contenue du petit encart soutenue à droite, dans un titre h5 de classe "soutenue" (texte vert sur le site)
+  # dates_theses <- str_split(string=dates_theses, pattern=" ", simplify=TRUE)[,3] #on split le texte pour ne garder que la date
+  # dates_theses <- dates_theses %>% str_sub(., -4, -1) %>% as.integer()#on ne garde que l'année, convertie en nombre entier
   print("récupération de la discipline et des titres des thèses...")
   #on récupère la discipline
-  discipline_theses <- resultats %>% html_nodes("div.domaine") %>% html_node("h5") %>% html_text() #nom de la discipline dans une div de classe "domaine" (puis titre h5) dans l'encart à droite, convertie ensuite en texte
+  discipline_theses <- results %>% html_nodes("div.domaine") %>% html_node("h5") %>% html_text() #nom de la discipline dans une div de classe "domaine" (puis titre h5) dans l'encart à droite, convertie ensuite en texte
   id_theses <- infos_theses %>% html_node("h2 a") %>% html_attr("href") %>% as.character()
   #on récupère les noms, qui sont dans un lien dans un titre h2
   noms_theses <- infos_theses %>% html_nodes("h2") %>% html_text() %>% str_replace_all("\r\n", "")
@@ -76,9 +76,9 @@ build_phd_table <- function(results, export=T){
   #on récupère l'auteur
   auteurs_theses <- infos_theses %>% html_nodes("p") %>% html_text()
   auteurs_theses <- str_split(auteurs_theses, pattern="\r\n", simplify = TRUE)[,1]
+  auteurs_theses <- str_split(auteurs_theses, pattern="  ", simplify = TRUE)[,2]
   auteurs_theses <- auteurs_theses %>% str_replace("par ", "") %>% str_to_title(locale=langue)
   #id de l'auteur #premier lien a du paragraphe p
-  id_auteur <- infos_theses %>% html_node("p a:nth-child(1)") %>% html_attr("href") %>% substr(2,nchar(.))
   
   print("infos sur le directeur de thèse...")
   #on récupère l'encadrant numéro 1 et l'université de soutenance
@@ -94,7 +94,7 @@ build_phd_table <- function(results, export=T){
   univ_theses <- str_split(dir_theses, pattern=" - ", simplify=TRUE)[,2] %>% substr(x=.,start=1, stop=nchar(.)-2)
   
   print("Mise en forme dans un data frame")
-  LIENS <- data.frame(ID_THESE= id_theses, ID_AUTEUR= id_auteur, AUTEUR=auteurs_theses, ANNEE= dates_theses, ID_DIR=as.character(id_dirtheses), DIR=directeur_theses, UNIV_DIR= univ_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
+  LIENS <- data.frame(ID_THESE= id_theses, AUTEUR=auteurs_theses, ID_DIR=as.character(id_dirtheses), DIR=directeur_theses, UNIV_DIR= univ_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
   
   
   if (export==T){#si utilisateur a choisi export en csv :
@@ -105,6 +105,34 @@ build_phd_table <- function(results, export=T){
   return(LIENS)#on retourne un df de toute les soutenances
 
 }
+
+
+
+#meme chose que get_results() mais en utlisant API. la reponse est au format json
+
+phd_request <- function(disc, keyword){
+  keyword <- keyword %>% str_replace_all(" ", "%20")
+  disc_prep <- paste("discipline", disc, sep = "=")
+  print("Requête sur API en cours...")
+  result <- content(
+    GET(url = "https://www.theses.fr/fr/", path=langue, query=list(q = keyword, format = "json", checkedfacets = disc_prep)),
+    as="raw",
+    content_type("application/json")
+  )
+  print("Requête OK")
+  #print(result)
+  print("Conversion du résultat (json brut vers un dataframe)...")
+  result_txt <- rawToChar(result)
+  result_txt <- str_conv(result_txt, "UTF-8")
+  #print(result_txt)
+  resultat_df <- jsonlite::fromJSON(result_txt)
+  #print(resultat_df)
+  resultats_finaux <- resultat_df$response$docs
+  print("OK")
+  return(resultats_finaux)
+}
+
+
 
 
 #---------------------------------------------------------------------
@@ -144,37 +172,13 @@ geocode_phds_from_column <- function(table, champ_a_traiter){
   geocoded_data <- geocoded_data %>% filter(!is.na(latitude) | !is.na(longitude)) %>% st_as_sf(coords = c("longitude", "latitude"), crs="EPSG:4326")
   geocoded_data$id <- as.character(geocoded_data$id)
   print("jointure avec table de base")
-  geocoded_data_sf <- left_join(x=table, y=geocoded_data, by=c("id" = "id"))
+  geocoded_data_sf <- left_join(x=table, y=geocoded_data, by=c("id" = "id")) %>% st_as_sf()
 
   print(geocoded_data_sf)
   print("OK")
   return(geocoded_data_sf)
 }
 
-
-#meme chose que get_results() mais en utlisant API. la reponse est au format json
-
-phd_request <- function(disc, keyword){
-  keyword <- keyword %>% str_replace_all(" ", "%20")
-  disc_prep <- paste("discipline", disc, sep = "=")
-  print("Requête sur API en cours...")
-  result <- content(
-    GET(url = "https://www.theses.fr/fr/", path=langue, query=list(q = keyword, format = "json", checkedfacets = disc_prep)),
-    as="raw",
-    content_type("application/json")
-  )
-  print("Requête OK")
-  #print(result)
-  print("Conversion du résultat (json brut vers un dataframe)...")
-  result_txt <- rawToChar(result)
-  result_txt <- str_conv(result_txt, "UTF-8")
-  #print(result_txt)
-  resultat_df <- jsonlite::fromJSON(result_txt)
-  #print(resultat_df)
-  resultats_finaux <- resultat_df$response$docs
-  print("OK")
-  return(resultats_finaux)
-}
 
 
 get_dirthese_from_results <- function(url, phd_table){
@@ -255,17 +259,42 @@ theses_liens_from_json <- phd_request(discipline_saisie, motcles_saisis)
 
 hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_liens_from_json$dateSoutenance)), xlab = "année de soutenance", ylab="nombre de soutenances")
 
-theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance")
-class(theses_liensJSON_geocoded)
-mapview(theses_liensJSON_geocoded)
-theses_liensJSON_geocoded$
+# theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance")
+# class(theses_liensJSON_geocoded)
+# mapview(theses_liensJSON_geocoded)
+
 ######----------------------bac à merde------------------------------
 
 ENFANTS <- get_childs_from_results(url=url, theses_liens_from_json)
 PARENTS <- get_dirthese_from_results(url=url, theses_liens_from_json)
 
-id_auteur_a_tester <- "05737726X"
+dirige <- data.frame()
+for (i in seq(1,length(ENFANTS$ID_F))){
+id_auteur_a_tester <- ENFANTS$ID_F[i]
+if (id_auteur_a_tester == ""){
+  next
+}
 test_results <- get_resultats(url_base = paste("https://theses.fr/", id_auteur_a_tester, "#directeurSoutenue", sep=""))
 test_table_fils <- build_phd_table(results = test_results, export = F)
-test_table_fils$AUTEUR <- str_split(test_table_fils$AUTEUR, pattern="  ", simplify = T)[,2]
-test_table_fils <- test_table_fils %>% filter(ID_DIR == id_auteur_a_tester)   
+
+print(test_table_fils)
+#test_table_fils$AUTEUR <- str_split(test_table_fils$AUTEUR, pattern=" ", simplify = T)[,2]
+test_table_fils <- test_table_fils %>% filter(ID_DIR == id_auteur_a_tester)
+dirige <- rbind(dirige, test_table_fils)
+}
+
+
+encadre <- data.frame()
+for (i in seq(1,length(PARENTS$ID_DIR))){
+  id_auteur_a_tester <- PARENTS$ID_DIR[i]
+  if (id_auteur_a_tester == ""){
+    next
+  }
+  test_results <- get_resultats(url_base = paste("https://theses.fr/", id_auteur_a_tester, "#directeurSoutenue", sep=""))
+  test_table_dir <- build_phd_table(results = test_results, export = F)
+  
+  print(test_table_dir)
+  #test_table_fils$AUTEUR <- str_split(test_table_fils$AUTEUR, pattern=" ", simplify = T)[,2]
+  test_table_dir <- test_table_dir %>% filter(ID_DIR == id_auteur_a_tester)
+  encadre <- rbind(encadre, test_table_dir)
+}
