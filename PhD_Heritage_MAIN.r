@@ -53,11 +53,11 @@ get_resultats <- function(url_base){
 
 #-----------Construction d'un tableau de données à partir du résultat html---------------
 
-build_phd_table <- function(results, export=T){
+build_phd_table <- function(results, export=F){
   infos_theses <- results %>% rvest::html_nodes("div.informations") #on récup dans les résultats les div contenant les infos de chaque thèse
   
   infos_tmp <- infos_theses %>% rvest::html_text() %>% data.frame(RESULTS = .) #on convertir le html en texte pour affichage test
-  infos_tmp$RESULTS #affichage des intitulés pour vérif
+  print(paste("INFOS THESES", infos_theses)) #affichage des intitulés pour vérif
   
   
   print("récupération de l'année de soutenance...")
@@ -72,29 +72,48 @@ build_phd_table <- function(results, export=T){
   #on récupère les noms, qui sont dans un lien dans un titre h2
   noms_theses <- infos_theses %>% html_nodes("h2") %>% html_text() %>% str_replace_all("\r\n", "")
   
-  print("Infos sur l'auteur...")
-  #on récupère l'auteur
-  auteurs_theses <- infos_theses %>% html_nodes("p") %>% html_text()
-  auteurs_theses <- str_split(auteurs_theses, pattern="\r\n", simplify = TRUE)[,1]
-  auteurs_theses <- str_split(auteurs_theses, pattern="  ", simplify = TRUE)[,2]
-  auteurs_theses <- auteurs_theses %>% str_replace("par ", "") %>% str_to_title(locale=langue)
-  #id de l'auteur #premier lien a du paragraphe p
-  
-  print("infos sur le directeur de thèse...")
-  #on récupère l'encadrant numéro 1 et l'université de soutenance
-  #nom du directeur
-  dir_theses <- infos_theses %>% html_nodes("p") %>% html_text()
-  dir_theses <- str_split(dir_theses, pattern="sous la direction de", simplify=TRUE)
-  dir_theses <- dir_theses[,2] %>% str_replace_all("\r\n", "") %>% str_replace_all(" \r\n", "") %>% substr(x=.,start=2, stop=nchar(.))
-  directeur_theses <- str_split(dir_theses, pattern=" - ", simplify=TRUE)[,1]
-  directeur_theses <- str_split(directeur_theses, pattern=" et de ", simplify=TRUE)[,1]
-  #id du dirthese #deuxième lien a du paragraphe p
-  id_dirtheses <- infos_theses %>% html_nodes("p a:nth-child(2)") %>% html_attr("href") %>% str_replace_all("/", "") %>% str_replace_all("fr/", "") %>% as.character()
-  #univ du directeur
-  univ_theses <- str_split(dir_theses, pattern=" - ", simplify=TRUE)[,2] %>% substr(x=.,start=1, stop=nchar(.)-2)
-  
+  print("récupération de l'auteur, du directeur de thèse et de l'université de soutenance")
+  ids_dirtheses <- NULL
+  ids_auteurs <- NULL
+  auteurs_theses <- NULL
+  dirtheses <- NULL
+  univs_theses <- NULL
+  ids_univs <- NULL
+  for (elem in infos_theses){
+    print(paste("ELEM", elem))
+    info_these <- elem %>% html_nodes("p a")
+    print(info_these)
+    print(length(info_these))
+    if (length(info_these) == 2){
+      auteur_these <- elem %>% html_node("p") %>% html_text()
+      auteur_these <- str_split(auteur_these, pattern="\r\n", simplify = TRUE)[,1]
+      auteur_these <- auteur_these %>% str_replace("par ", "") %>% str_replace("par  ", "") %>% str_to_title(locale=langue)
+      id_auteur <- NA
+      dir_these <- elem %>% html_node("p a:nth-child(1)") %>% html_text()
+      id_dirthese <- elem %>% html_node("p a:nth-child(1)") %>% html_attr("href") %>% str_replace_all("/", "") %>% str_replace_all("fr", "")
+      univ_these <- elem %>% html_node("p a:last-child") %>% html_attr("href") %>% str_replace_all(" ", "")
+      id_univ <- elem %>% html_node("p a:last-child")%>% html_attr("href") %>% str_replace_all("/", "")
+      
+    } else if(length(info_these) > 3){
+      
+      auteur_these <- elem %>% html_node("p a:nth-child(1)") %>% html_text()
+      id_auteur <- elem %>% html_node("p a:nth-child(1)") %>% html_attr("href") %>% str_replace_all("/", "") %>% str_replace_all("fr", "")
+      dir_these <- elem %>% html_node("p a:nth-child(2)") %>% html_text()
+      id_dirthese <- elem %>% html_node("p a:nth-child(2)") %>% html_attr("href") %>% str_replace_all("/", "") %>% str_replace_all("fr", "")
+      univ_these <- elem %>% html_node("p a:last-child") %>% html_text() %>% str_replace_all(" ", "")
+      id_univ <- elem %>% html_node("p a:last-child") %>% html_attr("href") %>% str_replace_all("/", "")
+    }
+    
+    ids_dirtheses <- c(ids_dirtheses, id_dirthese)
+    dirtheses <- c(dirtheses, dir_these)
+    auteurs_theses <- c(auteurs_theses, auteur_these)
+    ids_auteurs <- c(ids_auteurs, id_auteur)
+    univs_theses <- c(univs_theses, univ_these)
+    ids_univs <- c(ids_univs, id_univ)
+    
+  }
   print("Mise en forme dans un data frame")
-  LIENS <- data.frame(ID_THESE= id_theses, AUTEUR=auteurs_theses, ID_DIR=as.character(id_dirtheses), DIR=directeur_theses, UNIV_DIR= univ_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
+  LIENS <- data.frame(ID_THESE= id_theses, ID_AUTEUR= ids_auteurs, AUTEUR=auteurs_theses, ID_DIR=as.character(ids_dirtheses), DIR=dirtheses, UNIV_ID= ids_univs, UNIV_DIR= univs_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
   
   
   if (export==T){#si utilisateur a choisi export en csv :
@@ -102,7 +121,8 @@ build_phd_table <- function(results, export=T){
     write.csv(x = LIENS, file='LIENS.csv')
   }
   print("OK")
-  return(LIENS)#on retourne un df de toute les soutenances
+  #return(LIENS)#on retourne un df de toute les soutenances
+  return(LIENS)
 
 }
 
