@@ -11,6 +11,8 @@ library(tidyverse)#dplyr, pipe etc. Hadley Wickham le boss
 library(igraph)#pour faire des graphes
 library(data.table)
 library(rvest)#recup du contenu html distant et parser les noeuds html
+library(xml2)
+library(xmlconvert)
 # library(pingr)
 library(httr)#pour requetes http
 library(jsonlite)#manipuler des json
@@ -53,14 +55,14 @@ get_resultats <- function(url_base){
 
 #-----------Construction d'un tableau de données à partir du résultat html---------------
 
+
 build_phd_table <- function(results, export=F){
   infos_theses <- results %>% rvest::html_nodes("div.informations") #on récup dans les résultats les div contenant les infos de chaque thèse
-  
-  infos_tmp <- infos_theses %>% rvest::html_text() %>% data.frame(RESULTS = .) #on convertir le html en texte pour affichage test
+
   print(paste("INFOS THESES", infos_theses)) #affichage des intitulés pour vérif
   
   
-  print("récupération de l'année de soutenance...")
+  #print("récupération de l'année de soutenance...")
   #dans la div resultats on récup les dates (petit encart à droite du nom de la thèse)
   # dates_theses <- results %>% html_nodes("h5.soutenue") %>% html_text() #récupération du contenue du petit encart soutenue à droite, dans un titre h5 de classe "soutenue" (texte vert sur le site)
   # dates_theses <- str_split(string=dates_theses, pattern=" ", simplify=TRUE)[,3] #on split le texte pour ne garder que la date
@@ -79,6 +81,7 @@ build_phd_table <- function(results, export=F){
   dirtheses <- NULL
   univs_theses <- NULL
   ids_univs <- NULL
+  
   for (elem in infos_theses){
     print(paste("ELEM", elem))
     info_these <- elem %>% html_nodes("p a")
@@ -94,7 +97,7 @@ build_phd_table <- function(results, export=F){
       univ_these <- elem %>% html_node("p a:last-child") %>% html_attr("href") %>% str_replace_all(" ", "")
       id_univ <- elem %>% html_node("p a:last-child")%>% html_attr("href") %>% str_replace_all("/", "")
       
-    } else if(length(info_these) > 3){
+    } else if(length(info_these) >= 3){
       
       auteur_these <- elem %>% html_node("p a:nth-child(1)") %>% html_text()
       id_auteur <- elem %>% html_node("p a:nth-child(1)") %>% html_attr("href") %>% str_replace_all("/", "") %>% str_replace_all("fr", "")
@@ -113,7 +116,7 @@ build_phd_table <- function(results, export=F){
     
   }
   print("Mise en forme dans un data frame")
-  LIENS <- data.frame(ID_THESE= id_theses, ID_AUTEUR= ids_auteurs, AUTEUR=auteurs_theses, ID_DIR=as.character(ids_dirtheses), DIR=dirtheses, UNIV_ID= ids_univs, UNIV_DIR= univs_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
+  LIENS <- data.frame(ID_THESE= id_theses, ID_AUTEUR= ids_auteurs, AUTEUR=auteurs_theses, ID_DIR=ids_dirtheses, DIR=dirtheses, UNIV_ID= ids_univs, UNIV_DIR= univs_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
   
   
   if (export==T){#si utilisateur a choisi export en csv :
@@ -130,7 +133,7 @@ build_phd_table <- function(results, export=F){
 
 #meme chose que get_results() mais en utlisant API. la reponse est au format json
 
-phd_request <- function(disc, keyword){
+phd_request_json <- function(disc, keyword){
   keyword <- keyword %>% str_replace_all(" ", "%20")
   disc_prep <- paste("discipline", disc, sep = "=")
   print("Requête sur API en cours...")
@@ -206,21 +209,21 @@ get_dirthese_from_results <- function(url, phd_table){
   #debut de tentative de boucles pour constituer une matrice de liens (branche boucles sur GIT)
   url_session <- session(url) #on crée une session de navigation à partir de l'url de la recherche initiale
   #liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href") #on peut récupérer les liens des directeurs de thèses depuis la recheche en scrapping html
-  id_dirtheses <- phd_table$directeurThesePpn #ou bien les récup depuis le résultat en json
+  id_dirtheses <- phd_table$ID_DIR #ou bien les récup depuis le résultat en json
   
   for (i in seq(1,length(id_dirtheses))){ #on vérifie visuellement que les liens sont bien ok
-    print(id_dirtheses[[i]][1])
+    print(id_dirtheses[i])
   }
   
   dirtheses_info_tot <- data.frame() #on crée un df vide qui contiendra les résultats
   for (i in seq(1, length(id_dirtheses))){ #pour chaque dir these
     # on va, grace à la session de nav, sur sa page grace à son id
-    session_dirtheses <- url_session %>% session_jump_to(paste("https://theses.fr", id_dirtheses[[i]][1], sep="/"))
+    session_dirtheses <- url_session %>% session_jump_to(paste("https://theses.fr", id_dirtheses[i], sep="/"))
     dirtheses <- read_html(session_dirtheses$url)#on récup le contenu html de sa page
     motcles_dirtheses <- dirtheses %>% html_node("div#nuages") %>% html_text() #on isole les keywords du dirthese
     nom_dirtheses <-  dirtheses %>% html_node("h1") %>% html_text() #on isole son nom
-    print(paste("Lien numéro ", i, "Id :", id_dirtheses[[i]][1], "Nom :", nom_dirtheses, sep=" "))
-    dirtheses_info <- data.frame(ID_DIR=id_dirtheses[[i]][1], NOM_DIR = nom_dirtheses, MOTCLE = motcles_dirtheses) #on met toutes ses données dans un df temporaire
+    print(paste("Lien numéro ", i, "Id :", id_dirtheses[i], "Nom :", nom_dirtheses, sep=" "))
+    dirtheses_info <- data.frame(ID=id_dirtheses[i], NOM = nom_dirtheses, MOTCLE = motcles_dirtheses) #on met toutes ses données dans un df temporaire
     dirtheses_info_tot <- rbind(dirtheses_info_tot, dirtheses_info) #qu'on ajoute au df global crée avant la boucle
   }
   return(dirtheses_info_tot)
@@ -232,21 +235,22 @@ get_childs_from_results <- function(url, phd_table){
   #debut de tentative de boucles pour constituer une matrice de liens (branche boucles sur GIT)
   url_session <- session(url) #on crée une session de navigation à partir de l'url de la recherche initiale
   #liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href") #on peut récupérer les liens des directeurs de thèses depuis la recheche en scrapping html
-  id_fils <- phd_table$auteurPpn #ou bien les récup depuis le résultat en json
+  id_fils <- phd_table$ID_AUTEUR #ou bien les récup depuis le résultat en json
   
   for (i in seq(1,length(id_fils))){ #on vérifie visuellement que les liens sont bien ok
-    print(id_fils[[i]][1])
+    print(id_fils[i])
   }
   
   fils_info_tot <- data.frame() #on crée un df vide qui contiendra les résultats
   for (i in seq(1, length(id_fils))){ #pour chaque dir these
     # on va, grace à la session de nav, sur sa page grace à son id
-    session_fils <- url_session %>% session_jump_to(paste("https://theses.fr", id_fils[[i]][1], sep="/"))
+    session_fils <- url_session %>% session_jump_to(paste("https://theses.fr", id_fils[i], sep="/"))
+
     fils <- read_html(session_fils$url)#on récup le contenu html de sa page
     motcles_fils <- fils %>% html_node("div#nuages") %>% html_text() #on isole les keywords du dirthese
     nom_fils <-  fils %>% html_node("h1") %>% html_text() #on isole son nom
-    print(paste("Lien numéro ", i, "Id :", id_fils[[i]][1], "Nom :", nom_fils, sep=" "))
-    fils_info <- data.frame(ID_F=id_fils[[i]][1], NOM_F = nom_fils, MOTCLE = motcles_fils) #on met toutes ses données dans un df temporaire
+    print(paste("Lien numéro ", i, "Id :", id_fils[i], "Nom :", nom_fils, sep=" "))
+    fils_info <- data.frame(ID=id_fils[i], NOM = nom_fils, MOTCLE = motcles_fils) #on met toutes ses données dans un df temporaire
     fils_info_tot <- rbind(fils_info_tot, fils_info) #qu'on ajoute au df global crée avant la boucle
   }
   return(fils_info_tot)
@@ -254,6 +258,28 @@ get_childs_from_results <- function(url, phd_table){
 }
 
 
+get_phds_from_persons_df <- function(PERSONS_DF){
+  
+  df_final <- data.frame()
+  for (i in seq(1,length(PERSONS_DF$ID))){
+    id_auteur_a_tester <- PERSONS_DF$ID[i]
+    if (id_auteur_a_tester == ""){
+      next
+    }
+    
+    #AJouter un test de la div
+    
+    test_results <- get_resultats(url_base = paste("https://theses.fr/", id_auteur_a_tester, "#directeurSoutenue", sep=""))
+    test_table <- build_phd_table(results = test_results, export = F)
+    
+    print(test_table_dir)
+    #test_table_fils$AUTEUR <- str_split(test_table_fils$AUTEUR, pattern=" ", simplify = T)[,2]
+    test_table_dir <- test_table %>% filter(ID_DIR == id_auteur_a_tester)
+    df_final <- rbind(encadre, test_table)
+  }
+  return(df_final)
+  
+}
 
 
 #--------------------------------------------------------------------
@@ -285,36 +311,22 @@ hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_li
 
 ######----------------------bac à merde------------------------------
 
-ENFANTS <- get_childs_from_results(url=url, theses_liens_from_json)
-PARENTS <- get_dirthese_from_results(url=url, theses_liens_from_json)
+ENFANTS <- get_childs_from_results(url=url, theses_liens)
+PARENTS <- get_dirthese_from_results(url=url, theses_liens)
 
-dirige <- data.frame()
-for (i in seq(1,length(ENFANTS$ID_F))){
-id_auteur_a_tester <- ENFANTS$ID_F[i]
-if (id_auteur_a_tester == ""){
-  next
-}
-test_results <- get_resultats(url_base = paste("https://theses.fr/", id_auteur_a_tester, "#directeurSoutenue", sep=""))
-test_table_fils <- build_phd_table(results = test_results, export = F)
-
-print(test_table_fils)
-#test_table_fils$AUTEUR <- str_split(test_table_fils$AUTEUR, pattern=" ", simplify = T)[,2]
-test_table_fils <- test_table_fils %>% filter(ID_DIR == id_auteur_a_tester)
-dirige <- rbind(dirige, test_table_fils)
-}
+noeuds_tmp <- rbind(ENFANTS, PARENTS)
 
 
-encadre <- data.frame()
-for (i in seq(1,length(PARENTS$ID_DIR))){
-  id_auteur_a_tester <- PARENTS$ID_DIR[i]
-  if (id_auteur_a_tester == ""){
-    next
-  }
-  test_results <- get_resultats(url_base = paste("https://theses.fr/", id_auteur_a_tester, "#directeurSoutenue", sep=""))
-  test_table_dir <- build_phd_table(results = test_results, export = F)
-  
-  print(test_table_dir)
-  #test_table_fils$AUTEUR <- str_split(test_table_fils$AUTEUR, pattern=" ", simplify = T)[,2]
-  test_table_dir <- test_table_dir %>% filter(ID_DIR == id_auteur_a_tester)
-  encadre <- rbind(encadre, test_table_dir)
-}
+theses_encadrees_par_doctorant <- get_phds_from_persons_df(ENFANTS)
+theses_encadrees_par_directeurs <- get_phds_from_persons_df(PARENTS)
+
+
+encadre <- encadre[,c(4,2,1,3 )]
+
+plot.igraph(graph_from_data_frame(encadre), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5, vertex.label=encadre$AUTEUR, vertex.label.cex=0.7, curved=T,
+            layout=layout_with_kk(graph_from_data_frame(encadre)))
+
+
+
+
+read_html("https://theses.fr/027090248") %>% html_node("#directeurSoutenue")
