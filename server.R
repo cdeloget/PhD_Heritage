@@ -6,7 +6,7 @@
 #
 #    http://shiny.rstudio.com/
 #
- 
+
 library(shiny)
 
 source(file = "PhD_Heritage_MAIN.r")
