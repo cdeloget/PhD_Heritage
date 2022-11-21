@@ -268,15 +268,21 @@ get_phds_from_persons_df <- function(PERSONS_DF){
     }
     
     #AJouter un test de la div
-    
-    test_results <- get_resultats(url_base = paste("https://theses.fr/", id_auteur_a_tester, "#directeurSoutenue", sep=""))
+    url_tmp <- paste("https://theses.fr/", id_auteur_a_tester, "#directeurSoutenue", sep="")
+    result_test_url <- read_html(paste("https://theses.fr/", id_auteur_a_tester, sep="")) %>% html_node("#directeurSoutenue")
+    if(is.na(result_test_url)){
+      next
+    } else {
+    test_results <- get_resultats(url_base = url_tmp)
     test_table <- build_phd_table(results = test_results, export = F)
     
     print(test_table_dir)
     #test_table_fils$AUTEUR <- str_split(test_table_fils$AUTEUR, pattern=" ", simplify = T)[,2]
     test_table_dir <- test_table %>% filter(ID_DIR == id_auteur_a_tester)
+    print(test_table_dir)
     df_final <- rbind(encadre, test_table)
-  }
+    }
+    }
   return(df_final)
   
 }
@@ -285,48 +291,49 @@ get_phds_from_persons_df <- function(PERSONS_DF){
 #--------------------------------------------------------------------
 #-------------------------- SCRIPT PRINCIPAL -------------------------
 #--------------------------------------------------------------------
-
-
-discipline_saisie <- readline("Discipline : ") #ex : Taper "Geographie"
-
-motcles_saisis <- readline("mots clés ? : ")#ex : Taper "Thérèse Saint-Julien" ou "mobilités ferroviaires" 
-url <- build_phd_url(discipline_saisie, motcles_saisis)
-
-resultats <- get_resultats(url)#on va requeter theses.fr et renvoyer le code html contenant les resultats de la recherche sur theses.fr
-
-theses_liens <- build_phd_table(resultats)#recup des informations importantes dans le code html et les met en forme dans un tableau df
-
-#View(theses_liens)
-
-
-
-#resultat depuis API en json et non depuis un scrapping degueu (inachevé)
-theses_liens_from_json <- phd_request(discipline_saisie, motcles_saisis)
-
-hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_liens_from_json$dateSoutenance)), xlab = "année de soutenance", ylab="nombre de soutenances")
-
-# theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance")
-# class(theses_liensJSON_geocoded)
-# mapview(theses_liensJSON_geocoded)
-
-######----------------------bac à merde------------------------------
-
-ENFANTS <- get_childs_from_results(url=url, theses_liens)
-PARENTS <- get_dirthese_from_results(url=url, theses_liens)
-
-noeuds_tmp <- rbind(ENFANTS, PARENTS)
-
-
-theses_encadrees_par_doctorant <- get_phds_from_persons_df(ENFANTS)
-theses_encadrees_par_directeurs <- get_phds_from_persons_df(PARENTS)
-
-
-encadre <- encadre[,c(4,2,1,3 )]
-
-plot.igraph(graph_from_data_frame(encadre), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5, vertex.label=encadre$AUTEUR, vertex.label.cex=0.7, curved=T,
-            layout=layout_with_kk(graph_from_data_frame(encadre)))
-
-
-
-
-read_html("https://theses.fr/027090248") %>% html_node("#directeurSoutenue")
+# 
+# 
+# discipline_saisie <- readline("Discipline : ") #ex : Taper "Geographie"
+# 
+# motcles_saisis <- readline("mots clés ? : ")#ex : Taper "Thérèse Saint-Julien" ou "mobilités ferroviaires" 
+# 
+# url <- build_phd_url(discipline_saisie, motcles_saisis)
+# 
+# resultats <- get_resultats(url)#on va requeter theses.fr et renvoyer le code html contenant les resultats de la recherche sur theses.fr
+# 
+# theses_liens <- build_phd_table(resultats)#recup des informations importantes dans le code html et les met en forme dans un tableau df
+# 
+# #View(theses_liens)
+# 
+# 
+# 
+# #resultat depuis API en json et non depuis un scrapping degueu (inachevé)
+# theses_liens_from_json <- phd_request(discipline_saisie, motcles_saisis)
+# 
+# hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_liens_from_json$dateSoutenance)), xlab = "année de soutenance", ylab="nombre de soutenances")
+# 
+# # theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance")
+# # class(theses_liensJSON_geocoded)
+# # mapview(theses_liensJSON_geocoded)
+# 
+# ######----------------------bac à merde------------------------------
+# 
+# ENFANTS <- get_childs_from_results(url=url, theses_liens)
+# PARENTS <- get_dirthese_from_results(url=url, theses_liens)
+# 
+# noeuds_tmp <- rbind(ENFANTS, PARENTS)
+# 
+# 
+# theses_encadrees_par_doctorant <- get_phds_from_persons_df(ENFANTS)
+# theses_encadrees_par_directeurs <- get_phds_from_persons_df(PARENTS)
+# 
+# 
+# encadre <- encadre[,c(4,2,1,3 )]
+# 
+# plot.igraph(graph_from_data_frame(encadre), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5, vertex.label=encadre$AUTEUR, vertex.label.cex=0.7, curved=T,
+#             layout=layout_with_kk(graph_from_data_frame(encadre)))
+# 
+# 
+# 
+# 
+# read_html("https://theses.fr/027090248") %>% html_node("#directeurSoutenue")
