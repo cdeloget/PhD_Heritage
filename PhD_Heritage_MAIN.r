@@ -19,6 +19,7 @@ library(jsonlite)#manipuler des json
 library(sf)
 library(mapview)
 library(lubridate)
+library(RWDataPlyr)
 # library(geojsonsf)#convertir un geojson en sf sur R
 
 
@@ -59,7 +60,7 @@ get_resultats <- function(url_base){
 build_phd_table <- function(results, export=F){
   infos_theses <- results %>% rvest::html_nodes("div.informations") #on récup dans les résultats les div contenant les infos de chaque thèse
 
-  print(paste("INFOS THESES", infos_theses)) #affichage des intitulés pour vérif
+  #print(paste("INFOS THESES", infos_theses)) #affichage des intitulés pour vérif
   
   
   #print("récupération de l'année de soutenance...")
@@ -83,10 +84,8 @@ build_phd_table <- function(results, export=F){
   ids_univs <- NULL
   
   for (elem in infos_theses){
-    print(paste("ELEM", elem))
     info_these <- elem %>% html_nodes("p a")
-    print(info_these)
-    print(length(info_these))
+    print("elem", elem)
     if (length(info_these) == 2){
       auteur_these <- elem %>% html_node("p") %>% html_text()
       auteur_these <- str_split(auteur_these, pattern="\r\n", simplify = TRUE)[,1]
@@ -138,16 +137,16 @@ phd_request_json <- function(disc, keyword){
   disc_prep <- paste("discipline", disc, sep = "=")
   print("Requête sur API en cours...")
   result <- content(
-    GET(url = "https://www.theses.fr/fr/", path=langue, query=list(q = keyword, format = "json", checkedfacets = disc_prep)),
+    GET(url = "https://www.theses.fr", path=langue, query=list(q = keyword, format = "json", checkedfacets = disc_prep)),
     as="raw",
     content_type("application/json")
   )
   print("Requête OK")
-  #print(result)
+  print(result)
   print("Conversion du résultat (json brut vers un dataframe)...")
   result_txt <- rawToChar(result)
   result_txt <- str_conv(result_txt, "UTF-8")
-  #print(result_txt)
+  print(result_txt)
   resultat_df <- jsonlite::fromJSON(result_txt)
   #print(resultat_df)
   resultats_finaux <- resultat_df$response$docs
@@ -226,11 +225,12 @@ get_dirthese_from_results <- function(url, phd_table){
     dirtheses_info <- data.frame(ID=id_dirtheses[i], NOM = nom_dirtheses, MOTCLE = motcles_dirtheses) #on met toutes ses données dans un df temporaire
     dirtheses_info_tot <- rbind(dirtheses_info_tot, dirtheses_info) #qu'on ajoute au df global crée avant la boucle
   }
+  dirtheses_info_tot <- dirtheses_info_tot %>% group_by(ID) %>% summarise_all(first)
   return(dirtheses_info_tot)
 }
 
 
-get_childs_from_results <- function(url, phd_table){
+get_authors_from_results <- function(url, phd_table){
   
   #debut de tentative de boucles pour constituer une matrice de liens (branche boucles sur GIT)
   url_session <- session(url) #on crée une session de navigation à partir de l'url de la recherche initiale
@@ -253,37 +253,64 @@ get_childs_from_results <- function(url, phd_table){
     fils_info <- data.frame(ID=id_fils[i], NOM = nom_fils, MOTCLE = motcles_fils) #on met toutes ses données dans un df temporaire
     fils_info_tot <- rbind(fils_info_tot, fils_info) #qu'on ajoute au df global crée avant la boucle
   }
+  fils_info_tot <- fils_info_tot %>% group_by(ID) %>% summarise_all(first)
   return(fils_info_tot)
   
 }
 
 
-get_phds_from_persons_df <- function(PERSONS_DF){
-  
-  df_final <- data.frame()
-  for (i in seq(1,length(PERSONS_DF$ID))){
-    id_auteur_a_tester <- PERSONS_DF$ID[i]
-    if (id_auteur_a_tester == ""){
-      next
-    }
+get_phds_from_persons_df <- function(PERSONS_DF, person_role){
+  if(person_role == "dir" | person_role == "author"){
     
-    #AJouter un test de la div
-    url_tmp <- paste("https://theses.fr/", id_auteur_a_tester, "#directeurSoutenue", sep="")
-    result_test_url <- read_html(paste("https://theses.fr/", id_auteur_a_tester, sep="")) %>% html_node("#directeurSoutenue")
-    if(is.na(result_test_url)){
-      next
+    if(person_role == "dir"){
+      role_url <- "#directeurSoutenue"
     } else {
-    test_results <- get_resultats(url_base = url_tmp)
-    test_table <- build_phd_table(results = test_results, export = F)
+      role_url <- "#auteurSoutenue"
+    }
     
-    print(test_table_dir)
-    #test_table_fils$AUTEUR <- str_split(test_table_fils$AUTEUR, pattern=" ", simplify = T)[,2]
-    test_table_dir <- test_table %>% filter(ID_DIR == id_auteur_a_tester)
-    print(test_table_dir)
-    df_final <- rbind(encadre, test_table)
+    df_final <- data.frame()
+    for (i in seq(1,length(PERSONS_DF$ID))){
+      id_auteur_a_tester <- PERSONS_DF$ID[i]
+      print(id_auteur_a_tester)
+      if (id_auteur_a_tester == ""){
+        next
+      }
+      
+      print(i)
+      #AJouter un test de la div
+      url_tmp <- paste("https://theses.fr/", id_auteur_a_tester, role_url, sep="")
+      print(url_tmp)
+      result_test_url <- read_html(paste("https://theses.fr/", id_auteur_a_tester, sep="")) %>% html_node(role_url)
+      
+      if (is.na(result_test_url)){
+        print("raté")
+        next
+      }
+      
+      results <- read_html(paste("https://theses.fr/", id_auteur_a_tester, sep="")) %>% html_nodes("div.informations") %>% html_text()
+      
+      infos <- data.frame()
+      for(result in results){
+        
+        result_split <- str_split(result, "\r\n\r\n ", simplify=T)
+        titre <- result_split[,2]
+        infos_personnes_univ <- result_split[,3]
+        univ_soutenance <- str_split(infos_personnes_univ, "  - ", simplify=T)[,2]
+        infos_personnes <- str_split(infos_personnes_univ, "  - ", simplify=T)[,1]
+        infos_auteur <- str_split(infos_personnes, " sous la direction de ", simplify=T)[,1]
+        infos_dir <- str_split(infos_personnes, " sous la direction de ", simplify=T)[,2]
+        info <- data.frame(INTITULE = )
+      }
+
+      infos <- rbind(infos, info)
     }
-    }
-  return(df_final)
+    
+
+    return()
+  } else {
+    stop("role must be 'dir' or 'author'")
+  }
+  
   
 }
 
@@ -291,49 +318,47 @@ get_phds_from_persons_df <- function(PERSONS_DF){
 #--------------------------------------------------------------------
 #-------------------------- SCRIPT PRINCIPAL -------------------------
 #--------------------------------------------------------------------
-# 
-# 
-# discipline_saisie <- readline("Discipline : ") #ex : Taper "Geographie"
-# 
-# motcles_saisis <- readline("mots clés ? : ")#ex : Taper "Thérèse Saint-Julien" ou "mobilités ferroviaires" 
-# 
-# url <- build_phd_url(discipline_saisie, motcles_saisis)
-# 
-# resultats <- get_resultats(url)#on va requeter theses.fr et renvoyer le code html contenant les resultats de la recherche sur theses.fr
-# 
-# theses_liens <- build_phd_table(resultats)#recup des informations importantes dans le code html et les met en forme dans un tableau df
-# 
-# #View(theses_liens)
-# 
-# 
-# 
-# #resultat depuis API en json et non depuis un scrapping degueu (inachevé)
-# theses_liens_from_json <- phd_request(discipline_saisie, motcles_saisis)
-# 
-# hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_liens_from_json$dateSoutenance)), xlab = "année de soutenance", ylab="nombre de soutenances")
-# 
-# # theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance")
-# # class(theses_liensJSON_geocoded)
-# # mapview(theses_liensJSON_geocoded)
-# 
-# ######----------------------bac à merde------------------------------
-# 
-# ENFANTS <- get_childs_from_results(url=url, theses_liens)
-# PARENTS <- get_dirthese_from_results(url=url, theses_liens)
-# 
-# noeuds_tmp <- rbind(ENFANTS, PARENTS)
-# 
-# 
-# theses_encadrees_par_doctorant <- get_phds_from_persons_df(ENFANTS)
-# theses_encadrees_par_directeurs <- get_phds_from_persons_df(PARENTS)
-# 
-# 
-# encadre <- encadre[,c(4,2,1,3 )]
-# 
-# plot.igraph(graph_from_data_frame(encadre), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5, vertex.label=encadre$AUTEUR, vertex.label.cex=0.7, curved=T,
-#             layout=layout_with_kk(graph_from_data_frame(encadre)))
-# 
-# 
-# 
-# 
-# read_html("https://theses.fr/027090248") %>% html_node("#directeurSoutenue")
+
+
+discipline_saisie <- readline("Discipline : ") #ex : Taper "Geographie"
+
+motcles_saisis <- readline("mots clés ? : ")#ex : Taper "Thérèse Saint-Julien" ou "mobilités ferroviaires"
+
+url <- build_phd_url(discipline_saisie, motcles_saisis)
+
+resultats <- get_resultats(url)#on va requeter theses.fr et renvoyer le code html contenant les resultats de la recherche sur theses.fr
+
+theses_liens <- build_phd_table(resultats)#recup des informations importantes dans le code html et les met en forme dans un tableau df
+
+#View(theses_liens)
+
+
+
+#resultat depuis API en json et non depuis un scrapping degueu (inachevé)
+
+theses_liens_from_json <- phd_request_json(discipline_saisie, motcles_saisis)
+#pour affichage histogramme
+hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_liens_from_json$dateSoutenance)), xlab = "année de soutenance", ylab="nombre de soutenances")
+
+
+######----------------------bac à merde------------------------------
+
+ENFANTS <- get_authors_from_results(url=url, theses_liens)
+PARENTS <- get_dirthese_from_results(url=url, theses_liens)
+
+noeuds_tmp <- rbind(ENFANTS, PARENTS)
+
+
+theses_encadrees_par_doctorant <- get_phds_from_persons_df(ENFANTS, person_role = "dir")
+theses_encadrees_par_directeurs <- get_phds_from_persons_df(PARENTS, person_role = "dir")
+
+theses_ecrites_par_directeurs <- get_phds_from_persons_df(PARENTS, person_role = "author")
+
+encadre <- encadre[,c(4,2,1,3 )]
+
+plot.igraph(graph_from_data_frame(encadre), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5, vertex.label=encadre$AUTEUR, vertex.label.cex=0.7, curved=T,
+            layout=layout_with_kk(graph_from_data_frame(encadre)))
+
+
+
+read_html("https://theses.fr/027090248") %>% html_node("#directeurSoutenue") %>% html_text()
