@@ -50,9 +50,14 @@ data_theses <- data_theses[,c(1,2,9,3, 10, 4, 5, 6, 7, 11)]
 colnames(data_theses) <- c("ID_THESE", "ID_AUTEUR", "AUTEUR", "ID_DIR","DIR", "UNIV_ID", "UNIV_DIR", "INTITULE", "DISCIPLINE", "ANNEE")
 
 class(data_theses)
+
 #------------------------------------------------------------------
 #------------------ FONCTIONS -------------------------------------
 #-----------------------------------------------------------------
+
+
+########################################################################"
+################# Fonctions utilisées ##################################
 
 #------Récupération des résultats de recherche sur theses.fr-----------
 
@@ -76,7 +81,7 @@ get_resultats <- function(url_base){
 }
 
 
-#-----------Construction d'un tableau de données à partir du résultat html---------------
+#---Construction d'un tableau de données à partir du résultat html---
 
 
 build_phd_table <- function(results, export=F){
@@ -177,53 +182,8 @@ phd_request_json <- function(disc, keyword){
 }
 
 
-
-
-#---------------------------------------------------------------------
-#----------------------- FONCTIONS EXPERIMENTALES  --------------------
-#------------------------------------------------------------------
-
-
-#------géocodage à partir du nom de l'université de soutenance, en utilisant l'API BAN----
-
-geocode_phds_from_column <- function(table, champ_a_traiter){
-  table_a_geocoder <- table %>% select(id, champ_a_traiter)
-  write.csv(table_a_geocoder, "table_a_geocoder.csv")#la table passée en paramètre est exportée en csv
-  ###utilisation de l'API BAN de l'Etat FR pour géocoder un CSV qui est envoyé en méthode POST dans le paramètre data, avec un paramètre columns qui spécifie la colonne sur laquelle doit se baser le geocodage. result_columns permet de filtrer les colonnes souhaitées en résultat. Voir https://adresse.data.gouv.fr/api-doc/adresse
-  print("geocodage en cours...")
-  url_apiban <- "https://api-adresse.data.gouv.fr/search/csv/"
-  raw_response_content <- content(#content permet de ne récupérer que le contenu de la reponse, débarassée des en-têtes et autres infos
-    POST(
-      url = url_apiban,#url où faire la requete
-      body = list(data=upload_file("table_a_geocoder.csv"), 
-                  columns=champ_a_traiter, 
-                  result_columns="latitude", 
-                  result_columns="longitude", 
-                  result_columns="result_city"
-                  ),
-      verbose()#affichage des infos requete en console
-    ),
-    as = "raw",
-    content_type="text/csv"#on precise que la réponse est un document csv
-  )
-  #par défaut, le csv est encodé en hexadecimal : on le convertit en chaines de caractères classique
-  response_content <- rawToChar(raw_response_content)
-  file_con <- file("table_geocoded.txt")
-  writeLines(response_content, con=file_con, sep="\n")#le texte brut du csv est exporté ligne   par ligne (les lignes sont séparées par "\n")
-  close(con = file_con)
-  geocoded_data <- read.csv(file="table_geocoded.txt", encoding = "UTF-8")#on lit le fichier texte comme s'il s'agissait d'un csv. On le récupère donc en dataframe
-  print("transformation en spatial feature...")
-  geocoded_data <- geocoded_data %>% filter(!is.na(latitude) | !is.na(longitude)) %>% st_as_sf(coords = c("longitude", "latitude"), crs="EPSG:4326")
-  geocoded_data$id <- as.character(geocoded_data$id)
-  print("jointure avec table de base")
-  geocoded_data_sf <- left_join(x=table, y=geocoded_data, by=c("id" = "id")) %>% st_as_sf()
-
-  print(geocoded_data_sf)
-  print("OK")
-  return(geocoded_data_sf)
-}
-
-
+####################################################################
+################## Fonctions inutilisées #########################
 
 get_dirthese_from_results <- function(url, phd_table){
   
@@ -267,7 +227,7 @@ get_authors_from_results <- function(url, phd_table){
   for (i in seq(1, length(id_fils))){ #pour chaque dir these
     # on va, grace à la session de nav, sur sa page grace à son id
     session_fils <- url_session %>% session_jump_to(paste("https://theses.fr", id_fils[i], sep="/"))
-
+    
     fils <- read_html(session_fils$url)#on récup le contenu html de sa page
     motcles_fils <- fils %>% html_node("div#nuages") %>% html_text() #on isole les keywords du dirthese
     nom_fils <-  fils %>% html_node("h1") %>% html_text() #on isole son nom
@@ -281,93 +241,89 @@ get_authors_from_results <- function(url, phd_table){
 }
 
 
-get_phds_from_persons_df <- function(PERSONS_DF, person_role){
+
+
+######################################################################
+########################FONCTIONS EXPERIMENTALES  ####################
+
+
+
+#------géocodage à partir du nom de l'université de soutenance, en utilisant l'API BAN----
+
+geocode_phds_from_column <- function(table, champ_a_traiter){
+  table_a_geocoder <- table %>% select(id, champ_a_traiter)
+  write.csv(table_a_geocoder, "table_a_geocoder.csv")#la table passée en paramètre est exportée en csv
+  ###utilisation de l'API BAN de l'Etat FR pour géocoder un CSV qui est envoyé en méthode POST dans le paramètre data, avec un paramètre columns qui spécifie la colonne sur laquelle doit se baser le geocodage. result_columns permet de filtrer les colonnes souhaitées en résultat. Voir https://adresse.data.gouv.fr/api-doc/adresse
+  print("geocodage en cours...")
+  url_apiban <- "https://api-adresse.data.gouv.fr/search/csv/"
+  raw_response_content <- content(#content permet de ne récupérer que le contenu de la reponse, débarassée des en-têtes et autres infos
+    POST(
+      url = url_apiban,#url où faire la requete
+      body = list(data=upload_file("table_a_geocoder.csv"), 
+                  columns=champ_a_traiter, 
+                  result_columns="latitude", 
+                  result_columns="longitude", 
+                  result_columns="result_city"
+                  ),
+      verbose()#affichage des infos requete en console
+    ),
+    as = "raw",
+    content_type="text/csv"#on precise que la réponse est un document csv
+  )
+  #par défaut, le csv est encodé en hexadecimal : on le convertit en chaines de caractères classique
+  response_content <- rawToChar(raw_response_content)
+  file_con <- file("table_geocoded.txt")
+  writeLines(response_content, con=file_con, sep="\n")#le texte brut du csv est exporté ligne   par ligne (les lignes sont séparées par "\n")
+  close(con = file_con)
+  geocoded_data <- read.csv(file="table_geocoded.txt", encoding = "UTF-8")#on lit le fichier texte comme s'il s'agissait d'un csv. On le récupère donc en dataframe
+  print("transformation en spatial feature...")
+  geocoded_data <- geocoded_data %>% filter(!is.na(latitude) | !is.na(longitude)) %>% st_as_sf(coords = c("longitude", "latitude"), crs="EPSG:4326")
+  geocoded_data$id <- as.character(geocoded_data$id)
+  print("jointure avec table de base")
+  geocoded_data_sf <- left_join(x=table, y=geocoded_data, by=c("id" = "id")) %>% st_as_sf()
+
+  print(geocoded_data_sf)
+  print("OK")
+  return(geocoded_data_sf)
+}
+
+
+
+
+get_persons_keyword_from_id <- function(df, id_field){
+  pers_info_tot <- data.frame()
+  df_sel <- df[,id_field]
+  df_sel <- df_sel[!is.na(df_sel)]
+  for (pers in df_sel){
+    print(pers)
+    url_pers <- paste("https://theses.fr/fr/", pers, sep="")
+    result_pers <- rvest::read_html(url_pers)
+    motcles <- result_pers %>% html_node("div#nuages") %>% html_text()
+    nom_pers <-  result_pers %>% html_node("h1") %>% html_text()
+    pers_info <- data.frame(ID=pers, NOM=nom_pers, MOTCLE = motcles)
+    pers_info_tot <- rbind(pers_info_tot, pers_info)
+  }
+  return(pers_info_tot)
+}
+
+
+get_phds_from_persons_df <- function(data_gen = data_theses, persons_df, persons_id = "ID", person_role){
   if(person_role == "dir" | person_role == "author"){
-    nom_p <- PERSONS_DF$NOM
-    if(person_role == "dir"){
-      role_url <- "#directeurSoutenue"
-    } else {
-      role_url <- "#auteurSoutenue"
+    tabgen <- data.frame()
+    person_id_sel <- persons_df[,persons_id]
+    person_id_sel <- person_id_sel[!is.na(person_id_sel)]
+    for(id_p in person_id_sel){
+      if(person_role == "dir"){
+        tabsel <- data_gen %>% filter(ID_DIR == id_p)
+      } else {
+        tabsel <- data_gen %>% filter(ID_AUTEUR == id_p)
+      }
+    tabgen <- rbind(tabgen, tabsel)
     }
+    print(tabgen)
+    tabgen <- tabgen %>% group_by(ID_THESE) %>% summarise_all(first)
     
-    df_final <- data.frame()
-    for (i in seq(1,length(PERSONS_DF$ID))){
-      id_auteur_a_tester <- PERSONS_DF$ID[i]
-      print(id_auteur_a_tester)
-      if (id_auteur_a_tester == ""){
-        next
-      }
-      
-      print(i)
-      #AJouter un test de la div
-      url_tmp <- paste("https://theses.fr/", id_auteur_a_tester, role_url, sep="")
-      print(url_tmp)
-      result_test_url <- read_html(paste("https://theses.fr/", id_auteur_a_tester, sep="")) %>% html_node(role_url)
-      
-      if (is.na(result_test_url)){
-        print("raté")
-        next
-      }
-      results_brut <- read_html(paste("https://theses.fr/", id_auteur_a_tester, sep="")) %>% html_nodes("div.informations")
-      results <- results_brut %>% html_text()
-      
-      infos <- data.frame()
-      for(result_brut in results_brut){
-        
-        result <- result_brut %>% html_text()
-        
-        result_split <- str_split(result, "\r\n\r\n ", simplify=T)
-        titre <- result_split[,2]
-        infos_personnes_univ <- result_split[,3]
-        univ_soutenance <- str_split(infos_personnes_univ, " - ", simplify=T)[,2]
-        infos_personnes <- str_split(infos_personnes_univ, " - ", simplify=T)[,1]
-        infos_auteur <- str_split(infos_personnes, " sous la direction de ", simplify=T)[,1]
-        infos_auteur <- str_replace(infos_auteur, "par  ", "")
-        #infos_auteur <- str_replace_all(infos_auteur, " ", "")
-        infos_dir <- str_split(infos_personnes, " sous la direction de ", simplify=T)[,2]
-        infos_dir <- str_split(infos_dir, " et de ", simplify=T)[,1]
-
-        
-        #infos_dir <- str_replace_all(infos_dir, " ", "")
-        
-        
-        lien_t <- result_brut %>% html_node("a") %>% html_attr("href")
-        print(lien_t[1])
-        ID_these <- lien_t[1]
-        
-        lien_p <- result_brut %>% html_nodes("p a") %>% html_attr("href")
-        
-        
-        print(length(lien_p))
-        
-        if(length(lien_p) == 1){
-          ID_auteur <- ""
-          ID_dir <- lien_p[1]
-        } else if(length(lien_p) == 2) {
-          ID_auteur <- lien_p[1]
-          ID_dir <- lien_p[2]
-        } else {
-          ID_dir <- ""
-          ID_auteur <- ""
-        }
-        
-        
-        info <- data.frame(ID_THESE = ID_these, ID_AUTEUR = ID_auteur, AUTEUR = infos_auteur, ID_DIR = ID_dir, DIR= infos_dir, UNIV_ID= "", UNIV_DIR= "", INTITULE = titre, DISCIPLINE="")
-        
-        infos <- rbind(infos, info)
-        
-      }
-      # if(role_url == "dir"){
-      #   infos <- infos %>% filter(DIR %in% nom_p)
-      # } else {
-      #   infos <- infos %>% filter(AUTEUR %in% nom_p)
-      # }
-
-      df_final <- rbind(df_final, infos)
-    }
-    
-  
-    return(df_final)
+    return(tabgen)
   } else {
     stop("role must be 'dir' or 'author'")
   }
@@ -404,22 +360,21 @@ hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_li
 
 ######----------------------bac à merde------------------------------
 
-ENFANTS <- get_authors_from_results(url=url, theses_liens)
-PARENTS <- get_dirthese_from_results(url=url, theses_liens)
+#mot cles des directeurs de thèse
+infos_directeurs <- get_persons_keyword_from_id(theses_liens, "ID_DIR")
 
-noeuds_tmp <- rbind(ENFANTS, PARENTS)
+# mot clés des auteurs des thèses
+infos_auteurs <- get_persons_keyword_from_id(theses_liens, "ID_AUTEUR")
+
+#thèses où les auteurs ont été directeurs
+bibi <- get_phds_from_persons_df(data_theses, theses_liens, "ID_AUTEUR", "dir")
+
+#thèses dont les directeurs ont été les auteurs
+bibi <- get_phds_from_persons_df(data_theses, theses_liens, "ID_DIR", "author")
 
 
-theses_encadrees_par_doctorant <- get_phds_from_persons_df(ENFANTS, person_role = "dir")
-theses_encadrees_par_directeurs <- get_phds_from_persons_df(PARENTS, person_role = "dir")
-
-theses_ecrites_par_directeurs <- get_phds_from_persons_df(PARENTS, person_role = "author")
-
-encadre <- encadre[,c(4,2,1,3)]
 
 plot.igraph(graph_from_data_frame(encadre), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5, vertex.label=encadre$AUTEUR, vertex.label.cex=0.7, curved=T,
             layout=layout_with_kk(graph_from_data_frame(encadre)))
 
 
-
-read_html("https://theses.fr/027090248") %>% html_node("#directeurSoutenue") %>% html_text()
