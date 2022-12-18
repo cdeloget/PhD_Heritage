@@ -19,6 +19,7 @@ library(jsonlite)#manipuler des json
 library(sf)
 library(mapview)
 library(lubridate)
+library(data.table)
 library(RWDataPlyr)
 # library(geojsonsf)#convertir un geojson en sf sur R
 
@@ -28,6 +29,27 @@ library(RWDataPlyr)
 #-----------------------------------------------------------
 langue <- "fr"
 
+#-------------------------------------------------------------
+#------------------ Lecture des données --------------------
+#------------------------------------------------------------
+
+data_theses <- fread("theses-soutenues.csv", encoding = "UTF-8") %>% filter(status == "soutenue") %>% 
+  select(nnt,
+         auteurs.0.idref, 
+         auteurs.0.nom, 
+         auteurs.0.prenom, 
+         directeurs_these.0.idref,
+         directeurs_these.0.nom,
+         directeurs_these.0.prenom,
+         etablissements_soutenance.0.idref,
+         etablissements_soutenance.0.nom, titres.fr, discipline.fr, date_soutenance) %>% mutate(AUTEUR = paste(auteurs.0.prenom, auteurs.0.nom),
+                                                     DIR = paste(directeurs_these.0.prenom, directeurs_these.0.nom), ANNEE = year(date_soutenance)) %>% select(-auteurs.0.prenom, -auteurs.0.nom, -directeurs_these.0.nom, -directeurs_these.0.prenom, date_soutenance)
+
+data_theses <- data_theses[,c(1,2,9,3, 10, 4, 5, 6, 7, 11)]
+
+colnames(data_theses) <- c("ID_THESE", "ID_AUTEUR", "AUTEUR", "ID_DIR","DIR", "UNIV_ID", "UNIV_DIR", "INTITULE", "DISCIPLINE", "ANNEE")
+
+class(data_theses)
 #------------------------------------------------------------------
 #------------------ FONCTIONS -------------------------------------
 #-----------------------------------------------------------------
@@ -85,7 +107,7 @@ build_phd_table <- function(results, export=F){
   
   for (elem in infos_theses){
     info_these <- elem %>% html_nodes("p a")
-    print("elem", elem)
+    print(paste("elem", elem))
     if (length(info_these) == 2){
       auteur_these <- elem %>% html_node("p") %>% html_text()
       auteur_these <- str_split(auteur_these, pattern="\r\n", simplify = TRUE)[,1]
@@ -115,7 +137,7 @@ build_phd_table <- function(results, export=F){
     
   }
   print("Mise en forme dans un data frame")
-  LIENS <- data.frame(ID_THESE= id_theses, ID_AUTEUR= ids_auteurs, AUTEUR=auteurs_theses, ID_DIR=ids_dirtheses, DIR=dirtheses, UNIV_ID= ids_univs, UNIV_DIR= univs_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses)
+  LIENS <- data.frame(ID_THESE= id_theses, ID_AUTEUR= ids_auteurs, AUTEUR=auteurs_theses, ID_DIR=ids_dirtheses, DIR=dirtheses, UNIV_ID= ids_univs, UNIV_DIR= univs_theses, INTITULE = noms_theses, DISCIPLINE = discipline_theses, ANNEE = "")
   
   
   if (export==T){#si utilisateur a choisi export en csv :
@@ -261,7 +283,7 @@ get_authors_from_results <- function(url, phd_table){
 
 get_phds_from_persons_df <- function(PERSONS_DF, person_role){
   if(person_role == "dir" | person_role == "author"){
-    
+    nom_p <- PERSONS_DF$NOM
     if(person_role == "dir"){
       role_url <- "#directeurSoutenue"
     } else {
@@ -286,27 +308,66 @@ get_phds_from_persons_df <- function(PERSONS_DF, person_role){
         print("raté")
         next
       }
-      
-      results <- read_html(paste("https://theses.fr/", id_auteur_a_tester, sep="")) %>% html_nodes("div.informations") %>% html_text()
+      results_brut <- read_html(paste("https://theses.fr/", id_auteur_a_tester, sep="")) %>% html_nodes("div.informations")
+      results <- results_brut %>% html_text()
       
       infos <- data.frame()
-      for(result in results){
+      for(result_brut in results_brut){
+        
+        result <- result_brut %>% html_text()
         
         result_split <- str_split(result, "\r\n\r\n ", simplify=T)
         titre <- result_split[,2]
         infos_personnes_univ <- result_split[,3]
-        univ_soutenance <- str_split(infos_personnes_univ, "  - ", simplify=T)[,2]
-        infos_personnes <- str_split(infos_personnes_univ, "  - ", simplify=T)[,1]
+        univ_soutenance <- str_split(infos_personnes_univ, " - ", simplify=T)[,2]
+        infos_personnes <- str_split(infos_personnes_univ, " - ", simplify=T)[,1]
         infos_auteur <- str_split(infos_personnes, " sous la direction de ", simplify=T)[,1]
+        infos_auteur <- str_replace(infos_auteur, "par  ", "")
+        #infos_auteur <- str_replace_all(infos_auteur, " ", "")
         infos_dir <- str_split(infos_personnes, " sous la direction de ", simplify=T)[,2]
-        info <- data.frame(INTITULE = )
-      }
+        infos_dir <- str_split(infos_dir, " et de ", simplify=T)[,1]
 
-      infos <- rbind(infos, info)
+        
+        #infos_dir <- str_replace_all(infos_dir, " ", "")
+        
+        
+        lien_t <- result_brut %>% html_node("a") %>% html_attr("href")
+        print(lien_t[1])
+        ID_these <- lien_t[1]
+        
+        lien_p <- result_brut %>% html_nodes("p a") %>% html_attr("href")
+        
+        
+        print(length(lien_p))
+        
+        if(length(lien_p) == 1){
+          ID_auteur <- ""
+          ID_dir <- lien_p[1]
+        } else if(length(lien_p) == 2) {
+          ID_auteur <- lien_p[1]
+          ID_dir <- lien_p[2]
+        } else {
+          ID_dir <- ""
+          ID_auteur <- ""
+        }
+        
+        
+        info <- data.frame(ID_THESE = ID_these, ID_AUTEUR = ID_auteur, AUTEUR = infos_auteur, ID_DIR = ID_dir, DIR= infos_dir, UNIV_ID= "", UNIV_DIR= "", INTITULE = titre, DISCIPLINE="")
+        
+        infos <- rbind(infos, info)
+        
+      }
+      # if(role_url == "dir"){
+      #   infos <- infos %>% filter(DIR %in% nom_p)
+      # } else {
+      #   infos <- infos %>% filter(AUTEUR %in% nom_p)
+      # }
+
+      df_final <- rbind(df_final, infos)
     }
     
-
-    return()
+  
+    return(df_final)
   } else {
     stop("role must be 'dir' or 'author'")
   }
@@ -354,7 +415,7 @@ theses_encadrees_par_directeurs <- get_phds_from_persons_df(PARENTS, person_role
 
 theses_ecrites_par_directeurs <- get_phds_from_persons_df(PARENTS, person_role = "author")
 
-encadre <- encadre[,c(4,2,1,3 )]
+encadre <- encadre[,c(4,2,1,3)]
 
 plot.igraph(graph_from_data_frame(encadre), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5, vertex.label=encadre$AUTEUR, vertex.label.cex=0.7, curved=T,
             layout=layout_with_kk(graph_from_data_frame(encadre)))
