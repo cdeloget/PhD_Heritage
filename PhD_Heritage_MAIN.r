@@ -212,6 +212,9 @@ get_persons_keyword_from_id <- function(df, id_field){
   df_sel <- df[,id_field]
   df_sel <- df_sel[!is.na(df_sel)]
   for (pers in df_sel){
+    if(pers == ""){
+      next
+    }
     print(pers)
     url_pers <- paste("https://theses.fr/fr/", pers, sep="")
     result_pers <- rvest::read_html(url_pers)
@@ -224,7 +227,7 @@ get_persons_keyword_from_id <- function(df, id_field){
 }
 
 
-get_phds_from_persons_df <- function(data_gen = data_theses, persons_df, persons_id = "ID", person_role){
+get_phds_from_persons_df <- function(data_gen, persons_df, persons_id = "ID", person_role){
   if(person_role == "dir" | person_role == "author"){
     tabgen <- data.frame()
     person_id_sel <- persons_df[,persons_id]
@@ -232,9 +235,10 @@ get_phds_from_persons_df <- function(data_gen = data_theses, persons_df, persons
     for(id_p in person_id_sel){
       if(person_role == "dir"){
         tabsel <- data_gen %>% filter(ID_DIR == id_p)
-      } else {
+      } else if(person_role == "author"){
         tabsel <- data_gen %>% filter(ID_AUTEUR == id_p)
       }
+  
       tabgen <- rbind(tabgen, tabsel)
     }
     print(tabgen)
@@ -248,33 +252,18 @@ get_phds_from_persons_df <- function(data_gen = data_theses, persons_df, persons
   
 }
 
-get_network_from_results <- function(results, nb_iter = 4){
-  if(nb_iter < 1 | nb_iter > 10){
-    stop("nb_iter doit être compris entre 1 et 10")
-  } else {
-    res.NOEUDS <- data.frame()
-    res.LIENS <- results
-    theses_en_cours<- results
-    personnes_en_cours <- data.frame()
-    results <- results
-    for(i in seq(1,nb_iter)){
-      print(paste("iter n°", i))
-      auteurs <- get_persons_keyword_from_id(theses_en_cours, id_field = "ID_AUTEUR" )
-      directeurs <- get_persons_keyword_from_id(theses_en_cours, id_field = "ID_DIR")
-      personnes_en_cours <- rbind(auteurs, directeurs)
-      res.NOEUDS <- rbind(res.NOEUDS, personnes_en_cours)
-      theses_dir <- get_phds_from_persons_df(data_gen = data_theses, persons_df = auteurs, person_role = "dir", persons_id = "ID")
-      theses_auteurs <- get_phds_from_persons_df(data_gen=data_theses, persons_df = directeurs, person_role="author", persons_id = "ID")
-      theses_en_cours <- rbind(theses_dir, theses_auteurs)
-      res.LIENS <- rbind(res.LIENS, theses_en_cours)
-      
-    }
+get_neighborhood_from_results <- function(results){
+    liens_tmp <- get_phds_from_persons_df(data_theses, results, "ID_AUTEUR", "dir")
+    liens_tmp <- rbind(liens_tmp, get_phds_from_persons_df(data_theses, results, "ID_DIR", "author"))
+    liens_tmp <- rbind(liens_tmp, get_phds_from_persons_df(data_theses, results, "ID_DIR", "dir"))
     
-    res.NOEUDS <- res.NOEUDS %>% group_by(NOM) %>% summarise_all(first)
-    res.LIENS <- res.LIENS %>% group_by(ID_THESE) %>% summarise_all(first)
+    res.LIENS <- liens_tmp %>% group_by(ID_THESE) %>% summarise_all(first)
+    
+    noeuds_tmp <- get_persons_keyword_from_id(df = res.LIENS, id_field = "ID_DIR")
+    noeuds_tmp <- rbind(noeuds_tmp, get_persons_keyword_from_id(df = res.LIENS, id_field = "ID_AUTEUR"))
+    res.NOEUDS <- noeuds_tmp %>% group_by(ID) %>% summarise_all(first)
     return(list(res.NOEUDS, res.LIENS))
   }
-}
 
 
 
@@ -394,9 +383,10 @@ resultats <- get_resultats(url)#on va requeter theses.fr et renvoyer le code htm
 theses_liens <- build_phd_table(resultats)#recup des informations importantes dans le code html et les met en forme dans un tableau df
 
 multipage_theses_liens <- phd_request_n_pages(discipline_recherchee = "Géographie", 
-                                              motcles_recherche = "analyse spatiale",nb_pages = 3)
+                                              motcles_recherche = "analyse spatiale",nb_pages = 2)
 
-theses_liens_geocoded <- geocode_phds_from_column(theses_liens, "UNIV_DIR")
+multipage_theses_liens$AUTEUR
+#theses_liens_geocoded <- geocode_phds_from_column(theses_liens, "UNIV_DIR")
 #View(theses_liens)
 
 
@@ -409,6 +399,8 @@ hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_li
 
 
 ######----------------------bac à merde------------------------------
+
+##Essai fonctions intermédiaires
 
 #mot cles des directeurs de thèse
 infos_directeurs <- get_persons_keyword_from_id(theses_liens, "ID_DIR")
@@ -423,14 +415,25 @@ bibi <- get_phds_from_persons_df(data_theses, theses_liens, "ID_AUTEUR", "dir")
 bibi <- get_phds_from_persons_df(data_theses, theses_liens, "ID_DIR", "author")
 
 
-
-network <- get_network_from_results(multipage_theses_liens, nb_iter=3)
-
-
-graph_prep <- as.data.frame(network[2])[,c(5,3)]
-graph_nodes <- as.data.frame(network[1])
-#?graph_from_data_frame()
-plot.igraph(graph_from_data_frame(d= graph_prep), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5, vertex.label=graph_prep$AUTEUR, vertex.label.cex=0.5, curved=T,
-            layout=layout_with_kk(graph_from_data_frame(graph_prep)))
+phds <- get_phds_from_persons_df(data_theses, multipage_theses_liens, persons_id = "ID_DIR", person_role = "dir")
 
 
+#test réseau
+
+network <- get_neighborhood_from_results(multipage_theses_liens)
+
+
+liens_reseau <- as.data.frame(network[2])
+liens_reseau_final <- data.frame()
+nb <- 1
+for (i in seq(1, nb)){
+  liens_reseau <-  rbind(liens_reseau, as.data.frame(get_neighborhood_from_results(liens_reseau)[2]))
+}
+
+LIENS <- as.data.frame(liens_reseau)[,c(5,3)]
+
+
+plot.igraph(graph_from_data_frame(LIENS), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5, vertex.label= LIENS$DIR,  vertex.label.cex=0.40, curved=F)#,
+            #layout=layout_with_kk(graph_from_data_frame(graph_prep)))
+
+data_theses %>% filter(ID_DIR == "035711884")
