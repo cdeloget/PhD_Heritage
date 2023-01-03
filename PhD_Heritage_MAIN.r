@@ -215,7 +215,7 @@ get_persons_keyword_from_id <- function(df, id_field){
     if(pers == ""){
       next
     }
-    print(pers)
+    #print(pers)
     url_pers <- paste("https://theses.fr/fr/", pers, sep="")
     result_pers <- rvest::read_html(url_pers)
     motcles <- result_pers %>% html_node("div#nuages") %>% html_text()
@@ -232,19 +232,16 @@ get_phds_from_persons_df <- function(data_gen, persons_df, persons_id = "ID", pe
     tabgen <- data.frame()
     person_id_sel <- persons_df[,persons_id]
     person_id_sel <- person_id_sel[!is.na(person_id_sel)]
-    for(id_p in person_id_sel){
-      if(person_role == "dir"){
-        tabsel <- data_gen %>% filter(ID_DIR == id_p)
-      } else if(person_role == "author"){
-        tabsel <- data_gen %>% filter(ID_AUTEUR == id_p)
-      }
-  
-      tabgen <- rbind(tabgen, tabsel)
+   
+    if(person_role == "dir"){
+      tabsel <- data_gen %>% filter(ID_DIR %in% person_id_sel)
+    } else if(person_role == "author"){
+      tabsel <- data_gen %>% filter(ID_AUTEUR %in% person_id_sel)
     }
-    print(tabgen)
-    tabgen <- tabgen %>% group_by(ID_THESE) %>% summarise_all(first)
+  
+      
     
-    return(tabgen)
+    return(tabsel)
   } else {
     stop("role must be 'dir' or 'author'")
   }
@@ -371,6 +368,8 @@ geocode_phds_from_column <- function(table, champ_toponyme){
 #-------------------------- SCRIPT PRINCIPAL -------------------------
 #--------------------------------------------------------------------
 
+#-----EFFECTUER UNE RECHERCHE SUR LE SITE---------------------
+
 
 discipline_saisie <- readline("Discipline : ") #ex : Taper "Geographie"
 
@@ -382,8 +381,6 @@ resultats <- get_resultats(url)#on va requeter theses.fr et renvoyer le code htm
 
 theses_liens <- build_phd_table(resultats)#recup des informations importantes dans le code html et les met en forme dans un tableau df
 
-multipage_theses_liens <- phd_request_n_pages(discipline_recherchee = "Géographie", 
-                                              motcles_recherche = "analyse spatiale",nb_pages = 2)
 
 multipage_theses_liens$AUTEUR
 #theses_liens_geocoded <- geocode_phds_from_column(theses_liens, "UNIV_DIR")
@@ -398,7 +395,7 @@ theses_liens_from_json <- phd_request_json(discipline_saisie, motcles_saisis)
 hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_liens_from_json$dateSoutenance)), xlab = "année de soutenance", ylab="nombre de soutenances")
 
 
-######----------------------bac à merde------------------------------
+######------INFORMATIONS DEPUIS LES RESULTATS---------------------------
 
 ##Essai fonctions intermédiaires
 
@@ -418,22 +415,32 @@ bibi <- get_phds_from_persons_df(data_theses, theses_liens, "ID_DIR", "author")
 phds <- get_phds_from_persons_df(data_theses, multipage_theses_liens, persons_id = "ID_DIR", person_role = "dir")
 
 
-#test réseau
+
+#-------------CONSTITUTION D'UN RESEAU------------------------------
+
+multipage_theses_liens <- phd_request_n_pages(discipline_recherchee = "Géographie", 
+                                              motcles_recherche = "ségrégation spatiale", nb_pages = 1)
+
 
 network <- get_neighborhood_from_results(multipage_theses_liens)
-
+#liens_reseau_final <- as.data.frame(network[2])
 
 liens_reseau <- as.data.frame(network[2])
 liens_reseau_final <- data.frame()
-nb <- 1
+nb <- 2
 for (i in seq(1, nb)){
-  liens_reseau <-  rbind(liens_reseau, as.data.frame(get_neighborhood_from_results(liens_reseau)[2]))
+  liens_reseau <-  as.data.frame(get_neighborhood_from_results(liens_reseau)[2])
+  liens_reseau_final <- rbind(liens_reseau_final, liens_reseau)
+  liens_reseau_final <- liens_reseau_final %>% group_by(ID_THESE) %>% summarise_all(first)
 }
 
-LIENS <- as.data.frame(liens_reseau)[,c(5,3)]
 
+LIENS <- as.data.frame(liens_reseau_final)[,c(5,3)]
 
-plot.igraph(graph_from_data_frame(LIENS), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5, vertex.label= LIENS$DIR,  vertex.label.cex=0.40, curved=F)#,
+plot(graph_from_data_frame(LIENS), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5,vertex.label.cex=0.5)#,
             #layout=layout_with_kk(graph_from_data_frame(graph_prep)))
-
+colnames(LIENS) <- c("from", "to")
+library(visNetwork)
+visNetwork(nodes = pers, edges = LIENS)
+?visNetwork
 data_theses %>% filter(ID_DIR == "035711884")
