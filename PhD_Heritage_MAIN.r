@@ -1,3 +1,13 @@
+###############################################################################
+###############################################################################
+########################### PHD HERITAGE ######################################
+############################ C Deloget ########################################
+###############################################################################
+##############################################################################
+
+
+
+
 #-----------------------------------------------------------------------
 #-----------------------------Chargement des packages------------------
 #----------------------------------------------------------------------
@@ -211,6 +221,7 @@ get_persons_keyword_from_id <- function(df, id_field){
   pers_info_tot <- data.frame()
   df_sel <- df[,id_field]
   df_sel <- df_sel[!is.na(df_sel)]
+  print(length(df_sel))
   for (pers in df_sel){
     if(pers == ""){
       next
@@ -249,18 +260,54 @@ get_phds_from_persons_df <- function(data_gen, persons_df, persons_id = "ID", pe
   
 }
 
-get_neighborhood_from_results <- function(results){
+get_first_neighborhood_from_results <- function(results){
+  #thèses dirigées par les auteurs des thèses résultats
     liens_tmp <- get_phds_from_persons_df(data_theses, results, "ID_AUTEUR", "dir")
+  #thèses écrites par les directeurs des thèses résultats
     liens_tmp <- rbind(liens_tmp, get_phds_from_persons_df(data_theses, results, "ID_DIR", "author"))
+  #autres thèses dirigées par les directeurs de theses résultats
     liens_tmp <- rbind(liens_tmp, get_phds_from_persons_df(data_theses, results, "ID_DIR", "dir"))
     
     res.LIENS <- liens_tmp %>% group_by(ID_THESE) %>% summarise_all(first)
     
+    print(paste("Nombre de personnes testées " , as.character(length(res.LIENS)*2)))
+    
     noeuds_tmp <- get_persons_keyword_from_id(df = res.LIENS, id_field = "ID_DIR")
     noeuds_tmp <- rbind(noeuds_tmp, get_persons_keyword_from_id(df = res.LIENS, id_field = "ID_AUTEUR"))
     res.NOEUDS <- noeuds_tmp %>% group_by(ID) %>% summarise_all(first)
+    
     return(list(res.NOEUDS, res.LIENS))
+}
+
+
+get_connections_from_results <- function(resulta, distance = 2){
+  first_results <- get_first_neighborhood_from_results(resulta)
+  pers_temp <- as.data.frame(first_results[2])
+  liens_fnl <- data.frame()
+  for(i in seq(1,distance)){
+    print(paste("passage numéro : ", i))
+      liens_temp <- get_phds_from_persons_df(data_gen = data_theses, persons_df = pers_temp, persons_id = "ID_DIR", person_role = "dir")
+      liens_temp <- rbind(liens_temp, get_phds_from_persons_df(data_gen = data_theses, persons_df = pers_temp, persons_id = "ID_AUTEUR", person_role = "dir"))
+      liens_temp <- rbind(liens_temp, get_phds_from_persons_df(data_gen = data_theses, persons_df = pers_temp, persons_id = "ID_DIR", person_role = "author"))
+      liens_temp <- liens_temp %>% group_by(ID_THESE) %>% summarise_all(first)
+      pers_temp <- liens_temp
+      liens_fnl <- rbind(liens_fnl, liens_temp)
+      
   }
+  
+  liens_fnl <- liens_fnl %>% group_by(ID_THESE) %>% summarise_all(first)
+  
+  # pers_fnl <- get_persons_keyword_from_id(df = liens_fnl, id_field = "ID_AUTEUR")
+  # pers_fnl <- rbind(pers_temp, get_persons_keyword_from_id(df = liens_fnl, id_field = "ID_DIR"))
+  # pers_fnl <- pers_fnl %>% group_by(ID, .drop = F) %>% summarise_all(first)
+  # 
+  resu.LIENS <- liens_fnl %>% filter(!is.null(ID_DIR))
+  #resu.NOEUDS <- pers_fnl
+  
+  #return(list(resu.NOEUDS, resu.LIENS))
+  return(resu.LIENS)
+  
+}
 
 
 
@@ -418,29 +465,32 @@ phds <- get_phds_from_persons_df(data_theses, multipage_theses_liens, persons_id
 
 #-------------CONSTITUTION D'UN RESEAU------------------------------
 
+#récupération de la première page de résultat sur thès.fr
 multipage_theses_liens <- phd_request_n_pages(discipline_recherchee = "Géographie", 
-                                              motcles_recherche = "ségrégation spatiale", nb_pages = 1)
+                                              motcles_recherche = "mobilités quotidiennes", nb_pages = 1)
 
 
-network <- get_neighborhood_from_results(multipage_theses_liens)
-#liens_reseau_final <- as.data.frame(network[2])
+#network <- get_first_neighborhood_from_results(multipage_theses_liens)
 
-liens_reseau <- as.data.frame(network[2])
-liens_reseau_final <- data.frame()
-nb <- 2
-for (i in seq(1, nb)){
-  liens_reseau <-  as.data.frame(get_neighborhood_from_results(liens_reseau)[2])
-  liens_reseau_final <- rbind(liens_reseau_final, liens_reseau)
-  liens_reseau_final <- liens_reseau_final %>% group_by(ID_THESE) %>% summarise_all(first)
-}
+#récupération du voisinnage à 2 degrés
+
+network_plus <- get_connections_from_results(multipage_theses_liens, distance = 1)
 
 
-LIENS <- as.data.frame(liens_reseau_final)[,c(5,3)]
+# mis en forme du tableau pour créaion du graphe
+LIENS <- as.data.frame(network_plus)[,c(5,3)]
+nom_temp <- str_split(LIENS$DIR, " ", 2, simplify=T)[,2]
+prenom_tmp <- substring(str_split(LIENS$DIR, " ", 2,simplify=T)[,1], first=1, last=1)
+LIENS$DIR <- paste(prenom_tmp, nom_temp, sep=".")
 
-plot(graph_from_data_frame(LIENS), arrow.size=0.25, edge.arrow.size=0.05, vertex.size=0.5,vertex.label.cex=0.5)#,
+nom_temp <- str_split(LIENS$AUTEUR, " ", 2,simplify=T)[,2]
+prenom_tmp <- substring(str_split(LIENS$AUTEUR, " ", 2,simplify=T)[,1], first=1, last=1)
+LIENS$AUTEUR <- paste(prenom_tmp, nom_temp, sep=".")
+
+plot(graph_from_data_frame(LIENS, directed = T), arrow.size=0.2, edge.arrow.size=0.2, edge.arrow.fill="red", vertex.size=0.5,vertex.label.cex=0.5, layout = layout_nicely(graph_from_data_frame(LIENS, directed = T)))#,
             #layout=layout_with_kk(graph_from_data_frame(graph_prep)))
-colnames(LIENS) <- c("from", "to")
-library(visNetwork)
-visNetwork(nodes = pers, edges = LIENS)
-?visNetwork
-data_theses %>% filter(ID_DIR == "035711884")
+# colnames(LIENS) <- c("from", "to")
+# library(visNetwork)
+# visNetwork(nodes = pers, edges = LIENS)
+# ?visNetwork
+# data_theses %>% filter(ID_DIR == "035711884")
