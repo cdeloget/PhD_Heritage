@@ -50,7 +50,7 @@ library(alakazam)
 langue <- "fr"
 
 #-------------------------------------------------------------
-#------------------ Lecture des données --------------------
+#------------------ Lecture des donnÃ©es --------------------
 #------------------------------------------------------------
 
 data_theses <- fread("theses-soutenues.csv", encoding = "UTF-8") %>% filter(status == "soutenue") %>% 
@@ -77,73 +77,73 @@ class(data_theses)
 
 
 ########################################################################"
-################# Fonctions utilisées ##################################
+################# Fonctions utilisÃ©es ##################################
 
-#------Récupération des résultats de recherche sur theses.fr-----------
+#------RÃ©cupÃ©ration des rÃ©sultats de recherche sur theses.fr-----------
 
 build_phd_url <- function(discipline, motcles){
-  ###Fonction qui construit l'url de theses.fr avec la discipline et les mots clés passés en paramètres. Le code HTML qui contient les résultats est retourné
+  ###Fonction qui construit l'url de theses.fr avec la discipline et les mots clÃ©s passÃ©s en paramÃ¨tres. Le code HTML qui contient les rÃ©sultats est retournÃ©
   
   motcles <- motcles %>% str_replace_all(" ", "%20")
   
-  url_base <- paste("https://theses.fr/fr/?q=",motcles,"&status=status:soutenue&checkedfacets=discipline=",discipline, sep="") #création de la requête http get
+  url_base <- paste("https://theses.fr/fr/?q=",motcles,"&status=status:soutenue&checkedfacets=discipline=",discipline, sep="") #crÃ©ation de la requÃªte http get
 
 }
 
 get_resultats <- function(url_base){
-  #fonction qui effectue la requete et retourne le résultat html brut
-  print("URL de la requête : ")
-  print(url_base) #vérif de l'url
-  print("Requête en cours")
-  page_accueil <- read_html(url_base) #requete get et récup du code html
-  print("requête OK")
-  result_recherche <- page_accueil %>% html_nodes("div#resultat") #on récup sur la page la div contenant les résultats de la recherche
+  #fonction qui effectue la requete et retourne le rÃ©sultat html brut
+  print("URL de la requÃªte : ")
+  print(url_base) #vÃ©rif de l'url
+  print("RequÃªte en cours")
+  page_accueil <- read_html(url_base) #requete get et rÃ©cup du code html
+  print("requÃªte OK")
+  result_recherche <- page_accueil %>% html_nodes("div#resultat") #on rÃ©cup sur la page la div contenant les rÃ©sultats de la recherche
 
   return(url_base)
 }
 
 
 get_resultats <- function(url_ba, nb_pages = 1){
-  #fonction qui effectue la requete et retourne le résultat html brut, et le fait pour un nombre n de pages de recherches
+  #fonction qui effectue la requete et retourne le rÃ©sultat html brut, et le fait pour un nombre n de pages de recherches
 
-    print("URL de la requête : ")
-    print(url_ba) #vérif de l'url
-    print("Requête en cours")
-    page_accueil <- read_html(url_ba) #requete get et récup du code html
-    print("requête OK")
-    result_recherche <- page_accueil %>% html_nodes("div#resultat") #on récup sur la page la div contenant les résultats de la recherche
+    print("URL de la requÃªte : ")
+    print(url_ba) #vÃ©rif de l'url
+    print("RequÃªte en cours")
+    page_accueil <- read_html(url_ba) #requete get et rÃ©cup du code html
+    print("requÃªte OK")
+    result_recherche <- page_accueil %>% html_nodes("div#resultat") #on rÃ©cup sur la page la div contenant les rÃ©sultats de la recherche
 
   return(result_recherche)
 }
 
 
-#---Construction d'un tableau de données à partir du résultat html---
+#---Construction d'un tableau de donnÃ©es Ã  partir du rÃ©sultat html---
 
 
 build_phd_table <- function(results, export=F){
-  infos_theses <- results %>% rvest::html_nodes("div.informations") #on récup dans les résultats les div contenant les infos de chaque thèse
+  infos_theses <- results %>% rvest::html_nodes("div.informations") #on rÃ©cup dans les rÃ©sultats les div contenant les infos de chaque thÃ¨se
 
-  #print(paste("INFOS THESES", infos_theses)) #affichage des intitulés pour vérif
+  #print(paste("INFOS THESES", infos_theses)) #affichage des intitulÃ©s pour vÃ©rif
   
   
-  #print("récupération de l'année de soutenance...")
-  #dans la div resultats on récup les dates (petit encart à droite du nom de la thèse)
-  # dates_theses <- results %>% html_nodes("h5.soutenue") %>% html_text() #récupération du contenue du petit encart soutenue à droite, dans un titre h5 de classe "soutenue" (texte vert sur le site)
+  #print("rÃ©cupÃ©ration de l'annÃ©e de soutenance...")
+  #dans la div resultats on rÃ©cup les dates (petit encart Ã  droite du nom de la thÃ¨se)
+  # dates_theses <- results %>% html_nodes("h5.soutenue") %>% html_text() #rÃ©cupÃ©ration du contenue du petit encart soutenue Ã  droite, dans un titre h5 de classe "soutenue" (texte vert sur le site)
   # dates_theses <- str_split(string=dates_theses, pattern=" ", simplify=TRUE)[,3] #on split le texte pour ne garder que la date
-  # dates_theses <- dates_theses %>% str_sub(., -4, -1) %>% as.integer()#on ne garde que l'année, convertie en nombre entier
-  print("récupération de la discipline et des titres des thèses...")
-  #on récupère la discipline
-  discipline_theses <- results %>% html_nodes("div.domaine") %>% html_node("h5") %>% html_text() #nom de la discipline dans une div de classe "domaine" (puis titre h5) dans l'encart à droite, convertie ensuite en texte
+  # dates_theses <- dates_theses %>% str_sub(., -4, -1) %>% as.integer()#on ne garde que l'annÃ©e, convertie en nombre entier
+  print("rÃ©cupÃ©ration de la discipline et des titres des thÃ¨ses...")
+  #on rÃ©cupÃ¨re la discipline
+  discipline_theses <- results %>% html_nodes("div.domaine") %>% html_node("h5") %>% html_text() #nom de la discipline dans une div de classe "domaine" (puis titre h5) dans l'encart Ã  droite, convertie ensuite en texte
   id_theses <- infos_theses %>% html_node("h2 a") %>% html_attr("href") %>% as.character()
 
   id_theses <- str_replace_all(id_theses, "/", "")
 
   id_theses <- str_replace_all(id_theses, "/", "")
 
-  #on récupère les noms, qui sont dans un lien dans un titre h2
+  #on rÃ©cupÃ¨re les noms, qui sont dans un lien dans un titre h2
   noms_theses <- infos_theses %>% html_nodes("h2") %>% html_text() %>% str_replace_all("\r\n", "")
   
-  print("récupération de l'auteur, du directeur de thèse et de l'université de soutenance")
+  print("rÃ©cupÃ©ration de l'auteur, du directeur de thÃ¨se et de l'universitÃ© de soutenance")
   ids_dirtheses <- NULL
   ids_auteurs <- NULL
   auteurs_theses <- NULL
@@ -209,15 +209,15 @@ build_phd_table <- function(results, export=F){
 phd_request_json <- function(disc, keyword){
   keyword <- keyword %>% str_replace_all(" ", "%20")
   disc_prep <- paste("discipline", disc, sep = "=")
-  print("Requête sur API en cours...")
+  print("RequÃªte sur API en cours...")
   result <- content(
     GET(url = "https://www.theses.fr", path=langue, query=list(q = keyword, format = "json", checkedfacets = disc_prep)),
     as="raw",
     content_type("application/json")
   )
-  print("Requête OK")
+  print("RequÃªte OK")
   print(result)
-  print("Conversion du résultat (json brut vers un dataframe)...")
+  print("Conversion du rÃ©sultat (json brut vers un dataframe)...")
   result_txt <- rawToChar(result)
   result_txt <- str_conv(result_txt, "UTF-8")
   print(result_txt)
@@ -228,9 +228,10 @@ phd_request_json <- function(disc, keyword){
   return(resultats_finaux)
 }
 
+
 phd_request_n_pages <- function(discipline_recherchee, motcles_recherche, nb_pages=1){
   url_m <- build_phd_url(discipline_recherchee, motcles_recherche)
-  #url_base <- build_phd_url("Géographie", "mobilités")
+  #url_base <- build_phd_url("GÃ©ographie", "mobilitÃ©s")
   pages_requetees <- 0
   start_n <- 0
   result_final <- data.frame()
@@ -247,7 +248,7 @@ phd_request_n_pages <- function(discipline_recherchee, motcles_recherche, nb_pag
 }
 
 
-#-----------Récupération des infos sur les personnes et les thèses apparues en résultat--------
+#-----------RÃ©cupÃ©ration des infos sur les personnes et les thÃ¨ses apparues en rÃ©sultat--------
 get_persons_keyword_from_id <- function(df, id_field){
   pers_info_tot <- data.frame()
   df_sel <- df[,id_field]
@@ -292,11 +293,11 @@ get_phds_from_persons_df <- function(data_gen, persons_df, persons_id = "ID", pe
 }
 
 get_first_neighborhood_from_results <- function(results){
-  #thèses dirigées par les auteurs des thèses résultats
+  #thÃ¨ses dirigÃ©es par les auteurs des thÃ¨ses rÃ©sultats
     liens_tmp <- get_phds_from_persons_df(data_theses, results, "ID_AUTEUR", "dir")
-  #thèses écrites par les directeurs des thèses résultats
+  #thÃ¨ses Ã©crites par les directeurs des thÃ¨ses rÃ©sultats
     liens_tmp <- rbind(liens_tmp, get_phds_from_persons_df(data_theses, results, "ID_DIR", "author"))
-  #autres thèses dirigées par les directeurs de theses résultats
+  #autres thÃ¨ses dirigÃ©es par les directeurs de theses rÃ©sultats
     liens_tmp <- rbind(liens_tmp, get_phds_from_persons_df(data_theses, results, "ID_DIR", "dir"))
     
     res.LIENS <- liens_tmp %>% group_by(ID_THESE) %>% summarise_all(first)
@@ -305,7 +306,7 @@ get_first_neighborhood_from_results <- function(results){
     
     return(res.LIENS)
 
-    print(paste("Nombre de personnes testées " , as.character(length(res.LIENS)*2)))
+    print(paste("Nombre de personnes testÃ©es " , as.character(length(res.LIENS)*2)))
     
     noeuds_tmp <- get_persons_keyword_from_id(df = res.LIENS, id_field = "ID_DIR")
     noeuds_tmp <- rbind(noeuds_tmp, get_persons_keyword_from_id(df = res.LIENS, id_field = "ID_AUTEUR"))
@@ -326,15 +327,13 @@ get_connections_from_results <- function(resulta, distance = 2){
   
   liens_fnl <- data.frame()
   if(distance > 1){
-    distance <- distance - 1
-    for(i in seq(1,distance)){
-      print(paste("passage num�ro : ", i+1))
+  distance <- distance - 1
 
   first_results <- get_first_neighborhood_from_results(resulta)
   pers_temp <- as.data.frame(first_results[2])
   liens_fnl <- data.frame()
   for(i in seq(1,distance)){
-    print(paste("passage numéro : ", i))
+    print(paste("passage numÃ©ro : ", i))
 
       liens_temp <- get_phds_from_persons_df(data_gen = data_theses, persons_df = pers_temp, persons_id = "ID_DIR", person_role = "dir")
       liens_temp <- rbind(liens_temp, get_phds_from_persons_df(data_gen = data_theses, persons_df = pers_temp, persons_id = "ID_AUTEUR", person_role = "dir"))
@@ -343,7 +342,6 @@ get_connections_from_results <- function(resulta, distance = 2){
       pers_temp <- liens_temp
       liens_fnl <- rbind(liens_fnl, liens_temp)
       
-
     }
   } else {
     return(first_results)
@@ -351,7 +349,6 @@ get_connections_from_results <- function(resulta, distance = 2){
   
   
 
-  }
   
 
   liens_fnl <- liens_fnl %>% group_by(ID_THESE) %>% summarise_all(first)
@@ -371,29 +368,29 @@ get_connections_from_results <- function(resulta, distance = 2){
 
 
 ####################################################################
-################## Fonctions inutilisées #########################
+################## Fonctions inutilisÃ©es #########################
 
 get_dirthese_from_results <- function(url, phd_table){
   
   #debut de tentative de boucles pour constituer une matrice de liens (branche boucles sur GIT)
-  url_session <- session(url) #on crée une session de navigation à partir de l'url de la recherche initiale
-  #liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href") #on peut récupérer les liens des directeurs de thèses depuis la recheche en scrapping html
-  id_dirtheses <- phd_table$ID_DIR #ou bien les récup depuis le résultat en json
+  url_session <- session(url) #on crÃ©e une session de navigation Ã  partir de l'url de la recherche initiale
+  #liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href") #on peut rÃ©cupÃ©rer les liens des directeurs de thÃ¨ses depuis la recheche en scrapping html
+  id_dirtheses <- phd_table$ID_DIR #ou bien les rÃ©cup depuis le rÃ©sultat en json
   
-  for (i in seq(1,length(id_dirtheses))){ #on vérifie visuellement que les liens sont bien ok
+  for (i in seq(1,length(id_dirtheses))){ #on vÃ©rifie visuellement que les liens sont bien ok
     print(id_dirtheses[i])
   }
   
-  dirtheses_info_tot <- data.frame() #on crée un df vide qui contiendra les résultats
+  dirtheses_info_tot <- data.frame() #on crÃ©e un df vide qui contiendra les rÃ©sultats
   for (i in seq(1, length(id_dirtheses))){ #pour chaque dir these
-    # on va, grace à la session de nav, sur sa page grace à son id
+    # on va, grace Ã  la session de nav, sur sa page grace Ã  son id
     session_dirtheses <- url_session %>% session_jump_to(paste("https://theses.fr", id_dirtheses[i], sep="/"))
-    dirtheses <- read_html(session_dirtheses$url)#on récup le contenu html de sa page
+    dirtheses <- read_html(session_dirtheses$url)#on rÃ©cup le contenu html de sa page
     motcles_dirtheses <- dirtheses %>% html_node("div#nuages") %>% html_text() #on isole les keywords du dirthese
     nom_dirtheses <-  dirtheses %>% html_node("h1") %>% html_text() #on isole son nom
-    print(paste("Lien numéro ", i, "Id :", id_dirtheses[i], "Nom :", nom_dirtheses, sep=" "))
-    dirtheses_info <- data.frame(ID=id_dirtheses[i], NOM = nom_dirtheses, MOTCLE = motcles_dirtheses) #on met toutes ses données dans un df temporaire
-    dirtheses_info_tot <- rbind(dirtheses_info_tot, dirtheses_info) #qu'on ajoute au df global crée avant la boucle
+    print(paste("Lien numÃ©ro ", i, "Id :", id_dirtheses[i], "Nom :", nom_dirtheses, sep=" "))
+    dirtheses_info <- data.frame(ID=id_dirtheses[i], NOM = nom_dirtheses, MOTCLE = motcles_dirtheses) #on met toutes ses donnÃ©es dans un df temporaire
+    dirtheses_info_tot <- rbind(dirtheses_info_tot, dirtheses_info) #qu'on ajoute au df global crÃ©e avant la boucle
   }
   dirtheses_info_tot <- dirtheses_info_tot %>% group_by(ID) %>% summarise_all(first)
   return(dirtheses_info_tot)
@@ -403,25 +400,25 @@ get_dirthese_from_results <- function(url, phd_table){
 get_authors_from_results <- function(url, phd_table){
   
   #debut de tentative de boucles pour constituer une matrice de liens (branche boucles sur GIT)
-  url_session <- session(url) #on crée une session de navigation à partir de l'url de la recherche initiale
-  #liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href") #on peut récupérer les liens des directeurs de thèses depuis la recheche en scrapping html
-  id_fils <- phd_table$ID_AUTEUR #ou bien les récup depuis le résultat en json
+  url_session <- session(url) #on crÃ©e une session de navigation Ã  partir de l'url de la recherche initiale
+  #liens <- resultats %>% html_nodes("div.informations p a") %>% html_attr("href") #on peut rÃ©cupÃ©rer les liens des directeurs de thÃ¨ses depuis la recheche en scrapping html
+  id_fils <- phd_table$ID_AUTEUR #ou bien les rÃ©cup depuis le rÃ©sultat en json
   
-  for (i in seq(1,length(id_fils))){ #on vérifie visuellement que les liens sont bien ok
+  for (i in seq(1,length(id_fils))){ #on vÃ©rifie visuellement que les liens sont bien ok
     print(id_fils[i])
   }
   
-  fils_info_tot <- data.frame() #on crée un df vide qui contiendra les résultats
+  fils_info_tot <- data.frame() #on crÃ©e un df vide qui contiendra les rÃ©sultats
   for (i in seq(1, length(id_fils))){ #pour chaque dir these
-    # on va, grace à la session de nav, sur sa page grace à son id
+    # on va, grace Ã  la session de nav, sur sa page grace Ã  son id
     session_fils <- url_session %>% session_jump_to(paste("https://theses.fr", id_fils[i], sep="/"))
     
-    fils <- read_html(session_fils$url)#on récup le contenu html de sa page
+    fils <- read_html(session_fils$url)#on rÃ©cup le contenu html de sa page
     motcles_fils <- fils %>% html_node("div#nuages") %>% html_text() #on isole les keywords du dirthese
     nom_fils <-  fils %>% html_node("h1") %>% html_text() #on isole son nom
-    print(paste("Lien numéro ", i, "Id :", id_fils[i], "Nom :", nom_fils, sep=" "))
-    fils_info <- data.frame(ID=id_fils[i], NOM = nom_fils, MOTCLE = motcles_fils) #on met toutes ses données dans un df temporaire
-    fils_info_tot <- rbind(fils_info_tot, fils_info) #qu'on ajoute au df global crée avant la boucle
+    print(paste("Lien numÃ©ro ", i, "Id :", id_fils[i], "Nom :", nom_fils, sep=" "))
+    fils_info <- data.frame(ID=id_fils[i], NOM = nom_fils, MOTCLE = motcles_fils) #on met toutes ses donnÃ©es dans un df temporaire
+    fils_info_tot <- rbind(fils_info_tot, fils_info) #qu'on ajoute au df global crÃ©e avant la boucle
   }
   fils_info_tot <- fils_info_tot %>% group_by(ID) %>% summarise_all(first)
   return(fils_info_tot)
@@ -435,13 +432,8 @@ get_authors_from_results <- function(url, phd_table){
 
 
 
-#------géocodage à partir du nom de l'université de soutenance, en utilisant l'API BAN----
+#------gÃ©ocodage Ã  partir du nom de l'universitÃ© de soutenance, en utilisant l'API BAN----
 
-geocode_phds_from_column <- function(table, champ_a_traiter){
-  table_a_geocoder <- table %>% select(id, champ_a_traiter)
-  write.csv(table_a_geocoder, "table_a_geocoder.csv")#la table passée en paramètre est exportée en csv
-  ###utilisation de l'API BAN de l'Etat FR pour géocoder un CSV qui est envoyé en méthode POST dans le paramètre data, avec un paramètre columns qui spécifie la colonne sur laquelle doit se baser le geocodage. result_columns permet de filtrer les colonnes souhaitées en résultat. Voir https://adresse.data.gouv.fr/api-doc/adresse
-}
 
 geocode_phds_from_column <- function(table, champ_toponyme){
   
@@ -452,7 +444,7 @@ geocode_phds_from_column <- function(table, champ_toponyme){
   coords <- data.frame()
   for (tp in toponymes){
    tp <- str_replace_all(tp, " ", "+")
-   url_requete <- paste(url_api, "université+", tp, sep="")
+   url_requete <- paste(url_api, "universitÃ©+", tp, sep="")
   rep <-  httr::content(
             httr::GET(url_requete, verbose()),
             type="application/json", 
@@ -470,127 +462,3 @@ geocode_phds_from_column <- function(table, champ_toponyme){
   return(table_result)
 }
 
-
-
-
-#--------------------------------------------------------------------
-#-------------------------- SCRIPT PRINCIPAL -------------------------
-#--------------------------------------------------------------------
-
-#-----EFFECTUER UNE RECHERCHE SUR LE SITE---------------------
-
-
-discipline_saisie <- readline("Discipline : ") #ex : Taper "Geographie"
-
-motcles_saisis <- readline("mots clés ? : ")#ex : Taper "Thérèse Saint-Julien" ou "mobilités ferroviaires"
-
-url <- build_phd_url(discipline_saisie, motcles_saisis)
-
-resultats <- get_resultats(url)#on va requeter theses.fr et renvoyer le code html contenant les resultats de la recherche sur theses.fr
-
-theses_liens <- build_phd_table(resultats)#recup des informations importantes dans le code html et les met en forme dans un tableau df
-
-
-multipage_theses_liens$AUTEUR
-#theses_liens_geocoded <- geocode_phds_from_column(theses_liens, "UNIV_DIR")
-#View(theses_liens)
-
-
-
-#resultat depuis API en json et non depuis un scrapping degueu (inachevé)
-
-theses_liens_from_json <- phd_request_json(discipline_saisie, motcles_saisis)
-#pour affichage histogramme
-hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_liens_from_json$dateSoutenance)), xlab = "année de soutenance", ylab="nombre de soutenances")
-
-theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance")
-class(theses_liensJSON_geocoded)
-mapview(theses_liensJSON_geocoded)
-
-# theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance")
-# class(theses_liensJSON_geocoded)
-# mapview(theses_liensJSON_geocoded)
-
-
-######------INFORMATIONS DEPUIS LES RESULTATS---------------------------
-
-##Essai fonctions intermédiaires
-
-#mot cles des directeurs de thèse
-infos_directeurs <- get_persons_keyword_from_id(theses_liens, "ID_DIR")
-
-# mot clés des auteurs des thèses
-infos_auteurs <- get_persons_keyword_from_id(theses_liens, "ID_AUTEUR")
-
-#thèses où les auteurs ont été directeurs
-bibi <- get_phds_from_persons_df(data_theses, theses_liens, "ID_AUTEUR", "dir")
-
-#thèses dont les directeurs ont été les auteurs
-bibi <- get_phds_from_persons_df(data_theses, theses_liens, "ID_DIR", "author")
-
-
-phds <- get_phds_from_persons_df(data_theses, multipage_theses_liens, persons_id = "ID_DIR", person_role = "dir")
-
-
-geocode_phds_from_column <- function(table, champ_toponyme){
-  
-  toponymes <- table[,champ_toponyme]
-  url_api <- "https://nominatim.openstreetmap.org/search.php?format=jsonv2&q="
-  print("geocodage en cours...")
-  coords <- data.frame()
-  for (tp in toponymes){
-   tp <- str_replace_all(tp, " ", "+")
-   print(tp)
-   url_api <- "https://nominatim.openstreetmap.org/search.php?format=jsonv2&q="
-   url_requete <- paste(url_api, "universit�", tp, sep="")
-   print(url_requete)
-  rep <-  httr::content(
-            httr::GET(url=url_requete, verbose()),
-            type="application/json", 
-            as="text") %>% 
-              jsonlite::fromJSON()
-  coord <- data.frame(LAT=rep$lat[1], LON=rep$lon[1])
-  if(is_empty(coord)){
-    coord <- data.frame(LAT="", LON="")
-  }
-  coords <- rbind(coords, coord)
-  print(coord)
-  }
-  #table_result <- cbind(table, coords)
-  
-  print("OK")
-  return(coords)
-}
-
-
-#-------------CONSTITUTION D'UN RESEAU------------------------------
-
-#récupération de la première page de résultat sur thès.fr
-multipage_theses_liens <- phd_request_n_pages(discipline_recherchee = "Géographie", 
-                                              motcles_recherche = "mobilités quotidiennes", nb_pages = 1)
-
-
-#network <- get_first_neighborhood_from_results(multipage_theses_liens)
-
-#récupération du voisinnage à 2 degrés
-
-network_plus <- get_connections_from_results(multipage_theses_liens, distance = 1)
-
-
-# mis en forme du tableau pour créaion du graphe
-LIENS <- as.data.frame(network_plus)[,c(5,3)]
-nom_temp <- str_split(LIENS$DIR, " ", 2, simplify=T)[,2]
-prenom_tmp <- substring(str_split(LIENS$DIR, " ", 2,simplify=T)[,1], first=1, last=1)
-LIENS$DIR <- paste(prenom_tmp, nom_temp, sep=".")
-
-nom_temp <- str_split(LIENS$AUTEUR, " ", 2,simplify=T)[,2]
-prenom_tmp <- substring(str_split(LIENS$AUTEUR, " ", 2,simplify=T)[,1], first=1, last=1)
-LIENS$AUTEUR <- paste(prenom_tmp, nom_temp, sep=".")
-
-plot(graph_from_data_frame(LIENS, directed = T), arrow.size=0.2, edge.arrow.size=0.2, edge.arrow.fill="red", vertex.size=0.5,vertex.label.cex=0.5, layout = layout_nicely(graph_from_data_frame(LIENS, directed = T)))#,
-            #layout=layout_with_kk(graph_from_data_frame(graph_prep)))
-# colnames(LIENS) <- c("from", "to")
-# library(visNetwork)
-# visNetwork(nodes = pers, edges = LIENS)
-# ?visNetwork
-# data_theses %>% filter(ID_DIR == "035711884")

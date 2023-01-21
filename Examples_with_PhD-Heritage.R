@@ -50,7 +50,7 @@ phds <- get_phds_from_persons_df(data_theses, multipage_theses_liens, persons_id
 
 #récupération de la première page de rÃ©sultat sur thèses.fr
 multipage_theses_liens <- phd_request_n_pages(discipline_recherchee = "Géographie", 
-                                              motcles_recherche = "analyse spatiale", nb_pages = 5)
+                                              motcles_recherche = "analyse spatiale", nb_pages = 3)
 
 disciplines <- unique(data_theses$DISCIPLINE)
 #network <- get_first_neighborhood_from_results(multipage_theses_liens)
