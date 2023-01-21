@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
+
 ###############################################################################
 ###############################################################################
 ########################### PHD HERITAGE ######################################
@@ -13,10 +9,6 @@
 
 
 
-<<<<<<< HEAD
->>>>>>> 933826c (admin component added)
-=======
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
 #-----------------------------------------------------------------------
 #-----------------------------Chargement des packages------------------
 #----------------------------------------------------------------------
@@ -26,11 +18,11 @@
 library(tidyverse)#dplyr, pipe etc. Hadley Wickham le boss
 # library(dplyr)
 # library(magrittr)
-<<<<<<< HEAD
+
 # library(stringr)
-=======
+
 library(stringr)
->>>>>>> 933826c (admin component added)
+
 library(igraph)#pour faire des graphes
 library(data.table)
 library(rvest)#recup du contenu html distant et parser les noeuds html
@@ -44,13 +36,11 @@ library(mapview)
 library(lubridate)
 library(data.table)
 library(RWDataPlyr)
-<<<<<<< HEAD
-=======
 
 library(ape)
  
 library(alakazam)
->>>>>>> 933826c (admin component added)
+
 # library(geojsonsf)#convertir un geojson en sf sur R
 
 
@@ -97,8 +87,7 @@ build_phd_url <- function(discipline, motcles){
   motcles <- motcles %>% str_replace_all(" ", "%20")
   
   url_base <- paste("https://theses.fr/fr/?q=",motcles,"&status=status:soutenue&checkedfacets=discipline=",discipline, sep="") #création de la requête http get
-<<<<<<< HEAD
-<<<<<<< HEAD
+
 }
 
 get_resultats <- function(url_base){
@@ -109,15 +98,10 @@ get_resultats <- function(url_base){
   page_accueil <- read_html(url_base) #requete get et récup du code html
   print("requête OK")
   result_recherche <- page_accueil %>% html_nodes("div#resultat") #on récup sur la page la div contenant les résultats de la recherche
-=======
+
   return(url_base)
 }
 
-=======
-  return(url_base)
-}
-
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
 
 get_resultats <- function(url_ba, nb_pages = 1){
   #fonction qui effectue la requete et retourne le résultat html brut, et le fait pour un nombre n de pages de recherches
@@ -129,10 +113,6 @@ get_resultats <- function(url_ba, nb_pages = 1){
     print("requête OK")
     result_recherche <- page_accueil %>% html_nodes("div#resultat") #on récup sur la page la div contenant les résultats de la recherche
 
-<<<<<<< HEAD
->>>>>>> 933826c (admin component added)
-=======
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
   return(result_recherche)
 }
 
@@ -155,14 +135,11 @@ build_phd_table <- function(results, export=F){
   #on récupère la discipline
   discipline_theses <- results %>% html_nodes("div.domaine") %>% html_node("h5") %>% html_text() #nom de la discipline dans une div de classe "domaine" (puis titre h5) dans l'encart à droite, convertie ensuite en texte
   id_theses <- infos_theses %>% html_node("h2 a") %>% html_attr("href") %>% as.character()
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
+
   id_theses <- str_replace_all(id_theses, "/", "")
->>>>>>> 933826c (admin component added)
-=======
+
   id_theses <- str_replace_all(id_theses, "/", "")
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
+
   #on récupère les noms, qui sont dans un lien dans un titre h2
   noms_theses <- infos_theses %>% html_nodes("h2") %>% html_text() %>% str_replace_all("\r\n", "")
   
@@ -176,15 +153,13 @@ build_phd_table <- function(results, export=F){
   
   for (elem in infos_theses){
     info_these <- elem %>% html_nodes("p a")
-<<<<<<< HEAD
-<<<<<<< HEAD
+
     print(paste("elem", elem))
-=======
+
     #print(paste("elem", elem))
->>>>>>> 933826c (admin component added)
-=======
+
     #print(paste("elem", elem))
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
+
     if (length(info_these) == 2){
       auteur_these <- elem %>% html_node("p") %>% html_text()
       auteur_these <- str_split(auteur_these, pattern="\r\n", simplify = TRUE)[,1]
@@ -253,12 +228,6 @@ phd_request_json <- function(disc, keyword){
   return(resultats_finaux)
 }
 
-
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
 phd_request_n_pages <- function(discipline_recherchee, motcles_recherche, nb_pages=1){
   url_m <- build_phd_url(discipline_recherchee, motcles_recherche)
   #url_base <- build_phd_url("Géographie", "mobilités")
@@ -332,10 +301,10 @@ get_first_neighborhood_from_results <- function(results){
     
     res.LIENS <- liens_tmp %>% group_by(ID_THESE) %>% summarise_all(first)
     
-<<<<<<< HEAD
+
     
     return(res.LIENS)
-=======
+
     print(paste("Nombre de personnes testées " , as.character(length(res.LIENS)*2)))
     
     noeuds_tmp <- get_persons_keyword_from_id(df = res.LIENS, id_field = "ID_DIR")
@@ -343,12 +312,12 @@ get_first_neighborhood_from_results <- function(results){
     res.NOEUDS <- noeuds_tmp %>% group_by(ID) %>% summarise_all(first)
     
     return(list(res.NOEUDS, res.LIENS))
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
+
 }
 
 
 get_connections_from_results <- function(resulta, distance = 2){
-<<<<<<< HEAD
+
   
   first_results <- get_first_neighborhood_from_results(resulta)
   #first_results <- resulta
@@ -360,13 +329,13 @@ get_connections_from_results <- function(resulta, distance = 2){
     distance <- distance - 1
     for(i in seq(1,distance)){
       print(paste("passage num�ro : ", i+1))
-=======
+
   first_results <- get_first_neighborhood_from_results(resulta)
   pers_temp <- as.data.frame(first_results[2])
   liens_fnl <- data.frame()
   for(i in seq(1,distance)){
     print(paste("passage numéro : ", i))
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
+
       liens_temp <- get_phds_from_persons_df(data_gen = data_theses, persons_df = pers_temp, persons_id = "ID_DIR", person_role = "dir")
       liens_temp <- rbind(liens_temp, get_phds_from_persons_df(data_gen = data_theses, persons_df = pers_temp, persons_id = "ID_AUTEUR", person_role = "dir"))
       liens_temp <- rbind(liens_temp, get_phds_from_persons_df(data_gen = data_theses, persons_df = pers_temp, persons_id = "ID_DIR", person_role = "author"))
@@ -374,17 +343,17 @@ get_connections_from_results <- function(resulta, distance = 2){
       pers_temp <- liens_temp
       liens_fnl <- rbind(liens_fnl, liens_temp)
       
-<<<<<<< HEAD
+
     }
   } else {
     return(first_results)
   }
   
   
-=======
+
   }
   
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
+
   liens_fnl <- liens_fnl %>% group_by(ID_THESE) %>% summarise_all(first)
   
   # pers_fnl <- get_persons_keyword_from_id(df = liens_fnl, id_field = "ID_AUTEUR")
@@ -401,10 +370,6 @@ get_connections_from_results <- function(resulta, distance = 2){
 
 
 
-<<<<<<< HEAD
->>>>>>> 933826c (admin component added)
-=======
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
 ####################################################################
 ################## Fonctions inutilisées #########################
 
@@ -465,19 +430,6 @@ get_authors_from_results <- function(url, phd_table){
 
 
 
-
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-
-
-
->>>>>>> 933826c (admin component added)
-=======
-
-
-
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
 ######################################################################
 ########################FONCTIONS EXPERIMENTALES  ####################
 
@@ -485,18 +437,17 @@ get_authors_from_results <- function(url, phd_table){
 
 #------géocodage à partir du nom de l'université de soutenance, en utilisant l'API BAN----
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 geocode_phds_from_column <- function(table, champ_a_traiter){
   table_a_geocoder <- table %>% select(id, champ_a_traiter)
   write.csv(table_a_geocoder, "table_a_geocoder.csv")#la table passée en paramètre est exportée en csv
   ###utilisation de l'API BAN de l'Etat FR pour géocoder un CSV qui est envoyé en méthode POST dans le paramètre data, avec un paramètre columns qui spécifie la colonne sur laquelle doit se baser le geocodage. result_columns permet de filtrer les colonnes souhaitées en résultat. Voir https://adresse.data.gouv.fr/api-doc/adresse
-=======
+}
+
 geocode_phds_from_column <- function(table, champ_toponyme){
   
   toponymes <- table[,champ_toponyme]
   url_api <- "https://nominatim.openstreetmap.org/search.php?format=jsonv2&q="
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
+
   print("geocodage en cours...")
   coords <- data.frame()
   for (tp in toponymes){
@@ -552,7 +503,6 @@ theses_liens_from_json <- phd_request_json(discipline_saisie, motcles_saisis)
 #pour affichage histogramme
 hist(year(theses_liens_from_json$dateSoutenance), breaks = length(year(theses_liens_from_json$dateSoutenance)), xlab = "année de soutenance", ylab="nombre de soutenances")
 
-<<<<<<< HEAD
 theses_liensJSON_geocoded <- geocode_phds_from_column(theses_liens_from_json, "etabSoutenance")
 class(theses_liensJSON_geocoded)
 mapview(theses_liensJSON_geocoded)
@@ -582,8 +532,6 @@ bibi <- get_phds_from_persons_df(data_theses, theses_liens, "ID_DIR", "author")
 phds <- get_phds_from_persons_df(data_theses, multipage_theses_liens, persons_id = "ID_DIR", person_role = "dir")
 
 
-<<<<<<< HEAD
-=======
 geocode_phds_from_column <- function(table, champ_toponyme){
   
   toponymes <- table[,champ_toponyme]
@@ -613,13 +561,7 @@ geocode_phds_from_column <- function(table, champ_toponyme){
   print("OK")
   return(coords)
 }
-<<<<<<< HEAD
- 
-=======
 
->>>>>>> ef3330b (restructuration fichiers)
->>>>>>> 933826c (admin component added)
-=======
 
 #-------------CONSTITUTION D'UN RESEAU------------------------------
 
@@ -652,4 +594,3 @@ plot(graph_from_data_frame(LIENS, directed = T), arrow.size=0.2, edge.arrow.size
 # visNetwork(nodes = pers, edges = LIENS)
 # ?visNetwork
 # data_theses %>% filter(ID_DIR == "035711884")
->>>>>>> f02374ee4f93b722ff2f43d90476365b37ea5d22
