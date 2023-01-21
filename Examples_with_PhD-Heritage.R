@@ -1,7 +1,7 @@
 
 #Appel du script principal et de ses fonctions :
 
-source(file = "PhD_Heritage_MAIN.r")
+source(file = "PhD_Heritage_MAIN.r", local = TRUE)
 
 #-----EFFECTUER UNE RECHERCHE SUR LE SITE---------------------
 
@@ -57,7 +57,7 @@ disciplines <- unique(data_theses$DISCIPLINE)
 
 #récupération du voisinnage à 2 degrés
 
-network_plus <- get_connections_from_results(multipage_theses_liens, distance = 1)
+network_plus <- get_connections_from_results(multipage_theses_liens, distance = 2)
 
 # Géocodage
 
@@ -82,7 +82,7 @@ plot(graph_from_data_frame(LIENS, directed = T), arrow.size=0.2, edge.arrow.size
 
 colnames(LIENS) <- c("from", "to")
 LIENS <- LIENS %>% mutate(arrows = "to")
-pers <- as.data.frame(cbind(LIENS$DIR, LIENS$AUTEUR))
+pers <- as.data.frame(cbind(LIENS$from, LIENS$to))
 pers <- unique(pers)
 noeuds <- unique(as.data.frame(c(pers$V1, pers$V2)))
 colnames(noeuds) <- "id"
@@ -91,4 +91,3 @@ library(visNetwork)
 visNetwork(nodes = noeuds, edges = LIENS)
 ?visHierarchicalLayout()
 ?visNetwork
-# data_theses %>% filter(ID_DIR == "035711884")

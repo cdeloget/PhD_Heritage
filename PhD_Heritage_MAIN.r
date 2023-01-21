@@ -38,8 +38,6 @@ library(data.table)
 library(RWDataPlyr)
 
 library(ape)
- 
-library(alakazam)
 
 # library(geojsonsf)#convertir un geojson en sf sur R
 
@@ -273,7 +271,7 @@ get_persons_keyword_from_id <- function(df, id_field){
 get_phds_from_persons_df <- function(data_gen, persons_df, persons_id = "ID", person_role){
   if(person_role == "dir" | person_role == "author"){
     tabgen <- data.frame()
-    person_id_sel <- persons_df[,persons_id]
+    person_id_sel <- as.data.frame(persons_df)[,persons_id]
     person_id_sel <- person_id_sel[!is.na(person_id_sel)]
    
     if(person_role == "dir"){
@@ -306,7 +304,7 @@ get_first_neighborhood_from_results <- function(results){
     
     return(res.LIENS)
 
-    print(paste("Nombre de personnes testÃ©es " , as.character(length(res.LIENS)*2)))
+    print(paste("Nombre de personnes testées " , as.character(length(res.LIENS)*2)))
     
     noeuds_tmp <- get_persons_keyword_from_id(df = res.LIENS, id_field = "ID_DIR")
     noeuds_tmp <- rbind(noeuds_tmp, get_persons_keyword_from_id(df = res.LIENS, id_field = "ID_AUTEUR"))
@@ -330,10 +328,10 @@ get_connections_from_results <- function(resulta, distance = 2){
   distance <- distance - 1
 
   first_results <- get_first_neighborhood_from_results(resulta)
-  pers_temp <- as.data.frame(first_results[2])
+  #pers_temp <- as.data.frame(first_results[2])
   liens_fnl <- data.frame()
   for(i in seq(1,distance)){
-    print(paste("passage numÃ©ro : ", i))
+    print(paste("passage numéro : ", i+1))
 
       liens_temp <- get_phds_from_persons_df(data_gen = data_theses, persons_df = pers_temp, persons_id = "ID_DIR", person_role = "dir")
       liens_temp <- rbind(liens_temp, get_phds_from_persons_df(data_gen = data_theses, persons_df = pers_temp, persons_id = "ID_AUTEUR", person_role = "dir"))
@@ -353,9 +351,6 @@ get_connections_from_results <- function(resulta, distance = 2){
 
   liens_fnl <- liens_fnl %>% group_by(ID_THESE) %>% summarise_all(first)
   
-  # pers_fnl <- get_persons_keyword_from_id(df = liens_fnl, id_field = "ID_AUTEUR")
-  # pers_fnl <- rbind(pers_temp, get_persons_keyword_from_id(df = liens_fnl, id_field = "ID_DIR"))
-  # pers_fnl <- pers_fnl %>% group_by(ID, .drop = F) %>% summarise_all(first)
   # 
   resu.LIENS <- liens_fnl %>% filter(!is.null(ID_DIR))
   #resu.NOEUDS <- pers_fnl
