@@ -17,16 +17,16 @@ shinyUI(fluidPage(
   
   fluidRow(
     
-    column(4,
+    column(3,
       textInput("discipline", label="Discipline : "),
       textInput("motcle", label = "Mots clés : "),
       sliderInput("nbpages", label = "Nombre de pages à requêter : ", min = 1, max= 10, value = 1, ticks = F),
       h1(" "),
-      selectInput("degres", label = "Degré de parenté", choices = c("1", "2")),
+      selectInput("degres", label = "Degrés de parenté", choices = c("1", "2")),
       actionButton("displaygraphe", label="Lancer la recherche")
     ),
     
-    column(8,
+    column(9,
       tabsetPanel(
         tabPanel("Chronologie", 
                  plotOutput("chrono")),

@@ -51,23 +51,23 @@ langue <- "fr"
 #------------------ Lecture des donnÃ©es --------------------
 #------------------------------------------------------------
 
-data_theses <- fread("theses-soutenues.csv", encoding = "UTF-8") %>% filter(status == "soutenue") %>% 
-  select(nnt,
-         auteurs.0.idref, 
-         auteurs.0.nom, 
-         auteurs.0.prenom, 
-         directeurs_these.0.idref,
-         directeurs_these.0.nom,
-         directeurs_these.0.prenom,
-         etablissements_soutenance.0.idref,
-         etablissements_soutenance.0.nom, titres.fr, discipline.fr, date_soutenance) %>% mutate(AUTEUR = paste(auteurs.0.prenom, auteurs.0.nom),
-                                                     DIR = paste(directeurs_these.0.prenom, directeurs_these.0.nom), ANNEE = year(date_soutenance)) %>% select(-auteurs.0.prenom, -auteurs.0.nom, -directeurs_these.0.nom, -directeurs_these.0.prenom, date_soutenance)
-
-data_theses <- data_theses[,c(1,2,9,3, 10, 4, 5, 6, 7, 11)]
-
-colnames(data_theses) <- c("ID_THESE", "ID_AUTEUR", "AUTEUR", "ID_DIR","DIR", "UNIV_ID", "UNIV_DIR", "INTITULE", "DISCIPLINE", "ANNEE")
-
-class(data_theses)
+# data_theses <- fread("../theses-soutenues.csv", encoding = "UTF-8") %>% filter(status == "soutenue") %>%
+#   select(nnt,
+#          auteurs.0.idref,
+#          auteurs.0.nom,
+#          auteurs.0.prenom,
+#          directeurs_these.0.idref,
+#          directeurs_these.0.nom,
+#          directeurs_these.0.prenom,
+#          etablissements_soutenance.0.idref,
+#          etablissements_soutenance.0.nom, titres.fr, discipline.fr, date_soutenance) %>% mutate(AUTEUR = paste(auteurs.0.prenom, auteurs.0.nom),
+#                                                      DIR = paste(directeurs_these.0.prenom, directeurs_these.0.nom), ANNEE = year(date_soutenance)) %>% select(-auteurs.0.prenom, -auteurs.0.nom, -directeurs_these.0.nom, -directeurs_these.0.prenom, date_soutenance)
+# 
+# data_theses <- data_theses[,c(1,2,9,3, 10, 4, 5, 6, 7, 11)]
+# 
+# colnames(data_theses) <- c("ID_THESE", "ID_AUTEUR", "AUTEUR", "ID_DIR","DIR", "UNIV_ID", "UNIV_DIR", "INTITULE", "DISCIPLINE", "ANNEE")
+# 
+# class(data_theses)
 
 #------------------------------------------------------------------
 #------------------ FONCTIONS -------------------------------------
@@ -207,15 +207,15 @@ build_phd_table <- function(results, export=F){
 phd_request_json <- function(disc, keyword){
   keyword <- keyword %>% str_replace_all(" ", "%20")
   disc_prep <- paste("discipline", disc, sep = "=")
-  print("RequÃªte sur API en cours...")
+  print("Requête sur API en cours...")
   result <- content(
     GET(url = "https://www.theses.fr", path=langue, query=list(q = keyword, format = "json", checkedfacets = disc_prep)),
     as="raw",
     content_type("application/json")
   )
   print("RequÃªte OK")
-  print(result)
-  print("Conversion du rÃ©sultat (json brut vers un dataframe)...")
+  #print(result)
+  print("Conversion du résultat (json brut vers un dataframe)...")
   result_txt <- rawToChar(result)
   result_txt <- str_conv(result_txt, "UTF-8")
   print(result_txt)

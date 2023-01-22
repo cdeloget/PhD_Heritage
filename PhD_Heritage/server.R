@@ -15,7 +15,7 @@ shinyServer(function(input, output) {
 
     source(file = "../PhD_Heritage_MAIN.r", local = FALSE)
   
-
+ 
     
     observeEvent(input$displaygraphe, {
       theses_liens_from_json <- phd_request_json(input$discipline, input$motcle)
